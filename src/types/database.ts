@@ -1,4 +1,4 @@
-/** TypeScript type definitions matching the Supabase database schema */
+/** TypeScript types matching the Supabase database schema */
 
 /** A single chord+lyric line pair */
 export type SongLine = {
@@ -6,7 +6,7 @@ export type SongLine = {
   lyrics: string;
 };
 
-/** Section types for song structure */
+/** Section types detected from chord chart headers */
 export type SectionType =
   | 'verse'
   | 'pre_chorus'
@@ -17,43 +17,19 @@ export type SectionType =
   | 'interlude'
   | 'tag';
 
-/** A parsed song section (verse, chorus, bridge, etc.) */
+/** A song section (verse, chorus, bridge, etc.) */
 export type Section = {
   type: SectionType;
   marker: string;
   lines: SongLine[];
 };
 
-/** The full parsed content stored in content_parsed JSONB */
+/** The full parsed song content stored in content_parsed JSONB */
 export type SongContent = {
   sections: Section[];
 };
 
-/** Maps section types to their display markers */
-export const SECTION_MARKERS: Record<SectionType, string> = {
-  verse: '',
-  pre_chorus: '*',
-  chorus: '**',
-  bridge: '***',
-  intro: '[Intro]',
-  outro: '[Outro]',
-  interlude: '[Interlude]',
-  tag: '[Tag]',
-};
-
-/** Human-readable section labels for UI display */
-export const SECTION_LABELS: Record<SectionType, string> = {
-  verse: 'Verse',
-  pre_chorus: 'Pre-Chorus',
-  chorus: 'Chorus',
-  bridge: 'Bridge',
-  intro: 'Intro',
-  outro: 'Outro',
-  interlude: 'Interlude',
-  tag: 'Tag',
-};
-
-/** Song row from Supabase */
+/** songs table row */
 export type Song = {
   id: string;
   title: string;
@@ -66,7 +42,7 @@ export type Song = {
   updated_at: string;
 };
 
-/** Data needed to insert a new song */
+/** Input type for creating/updating a song */
 export type SongInsert = {
   title: string;
   artist?: string | null;
@@ -75,7 +51,7 @@ export type SongInsert = {
   content_parsed: SongContent;
 };
 
-/** Playlist row from Supabase */
+/** playlists table row */
 export type Playlist = {
   id: string;
   name: string;
@@ -85,23 +61,23 @@ export type Playlist = {
   updated_at: string;
 };
 
-/** Playlist insert data */
+/** Input type for creating a playlist */
 export type PlaylistInsert = {
   name: string;
   description?: string | null;
 };
 
-/** PlaylistSong join row from Supabase */
+/** playlist_songs table row (with optional joined song) */
 export type PlaylistSong = {
   id: string;
   playlist_id: string;
   song_id: string;
   position: number;
   transpose_semitones: number;
-  song?: Song; // populated when joined
+  song?: Song;
 };
 
-/** VideoBackground row from Supabase */
+/** video_backgrounds table row */
 export type VideoBackground = {
   id: string;
   name: string;
@@ -110,8 +86,20 @@ export type VideoBackground = {
   created_at: string;
 };
 
-/** Data needed to insert a new song (omits server-generated fields) */
-export type InsertSong = Omit<Song, 'id' | 'created_at' | 'updated_at' | 'created_by'>;
+/** Section type → marker mapping */
+export const SECTION_MARKERS: Record<SectionType, string> = {
+  verse: '',
+  pre_chorus: '*',
+  chorus: '**',
+  bridge: '***',
+  intro: '[Intro]',
+  outro: '[Outro]',
+  interlude: '[Interlude]',
+  tag: '[Tag]',
+};
 
-/** Partial data for updating an existing song */
-export type UpdateSong = Partial<InsertSong>;
+/** All chromatic notes (sharp) */
+export const CHROMATIC_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/** All chromatic notes (flat) */
+export const CHROMATIC_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
