@@ -1,53 +1,52 @@
-/** Presentation channel — BroadcastChannel wrapper for dual-window presentation sync */
-
-import type { VideoBackground } from '../types/database';
-
-/** Message types sent between control and presenter windows */
-export type PresentationMessageType =
-  | 'SHOW_LYRICS'
-  | 'SHOW_WELCOME'
-  | 'SHOW_BLACK'
-  | 'SET_BACKGROUND'
-  | 'CLOSE';
+/** BroadcastChannel communication for dual-window presentation sync.
+ *  Control window sends commands; Presenter window receives and renders. */
 
 export type PresentationMessage =
-  | { type: 'SHOW_LYRICS'; lyrics: string; songTitle: string }
-  | { type: 'SHOW_WELCOME' }
+  | { type: 'SHOW_LYRICS'; lyrics: string; background?: string }
+  | { type: 'SHOW_WELCOME'; background?: string }
   | { type: 'SHOW_BLACK' }
-  | { type: 'SET_BACKGROUND'; background: VideoBackground | null }
+  | { type: 'SET_BACKGROUND'; url: string }
   | { type: 'CLOSE' };
 
 const CHANNEL_NAME = 'worshipteam-presentation';
 
-let channel: BroadcastChannel | null = null;
+/**
+ * Creates a control-side channel (the window that drives the presentation).
+ * Use `send()` to dispatch messages to the presenter window.
+ */
+export function createControlChannel(): {
+  send: (msg: PresentationMessage) => void;
+  close: () => void;
+} {
+  const channel = new BroadcastChannel(CHANNEL_NAME);
 
-/** Get or create the shared BroadcastChannel */
-function getChannel(): BroadcastChannel {
-  if (!channel) {
-    channel = new BroadcastChannel(CHANNEL_NAME);
-  }
-  return channel;
-}
-
-/** Send a message to the presenter window */
-export function send(message: PresentationMessage): void {
-  getChannel().postMessage(message);
-}
-
-/** Listen for messages from the control window */
-export function onMessage(handler: (message: PresentationMessage) => void): () => void {
-  const ch = getChannel();
-  const listener = (event: MessageEvent<PresentationMessage>) => {
-    handler(event.data);
+  return {
+    send(msg: PresentationMessage) {
+      channel.postMessage(msg);
+    },
+    close() {
+      channel.close();
+    },
   };
-  ch.addEventListener('message', listener);
-  return () => ch.removeEventListener('message', listener);
 }
 
-/** Close the channel */
-export function closeChannel(): void {
-  if (channel) {
-    channel.close();
-    channel = null;
-  }
+/**
+ * Creates a presenter-side channel (the fullscreen display window).
+ * Incoming messages are forwarded to the provided `onMessage` callback.
+ */
+export function createPresenterChannel(
+  onMessage: (msg: PresentationMessage) => void,
+): { close: () => void } {
+  const channel = new BroadcastChannel(CHANNEL_NAME);
+
+  channel.onmessage = (event: MessageEvent<PresentationMessage>) => {
+    onMessage(event.data);
+  };
+
+  return {
+    close() {
+      channel.onmessage = null;
+      channel.close();
+    },
+  };
 }
