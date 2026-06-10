@@ -1,241 +1,105 @@
-/** Sidebar — Left panel with song list, playlists, and quick actions */
+/** Sidebar — Reusable left panel for song/playlist lists, matching sketches/003-split-panel */
 
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useSongs } from '../hooks/useSongs';
-import { usePlaylists } from '../hooks/usePlaylists';
+import { useUIStore } from '../store/uiStore'
 
-/** Sidebar navigation component with search, song list, playlists, and quick actions */
-export function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { songs } = useSongs();
-  const { playlists } = usePlaylists();
-  const [searchQuery, setSearchQuery] = useState('');
+export interface SidebarItem {
+  id: string
+  title: string
+  subtitle: string // e.g. 'John Newton'
+  badge?: string // e.g. 'G' (key badge)
+}
 
-  // Extract current song id from URL
-  const pathParts = location.pathname.split('/');
-  const currentSongId = pathParts[1] === 'songs' && pathParts[2] && pathParts[2] !== 'new'
-    ? pathParts[2]
-    : null;
+export interface SidebarProps {
+  title: string // e.g. '24 Songs'
+  items: SidebarItem[]
+  activeId?: string
+  onSelect: (id: string) => void
+  onAdd?: () => void
+  searchPlaceholder?: string
+  filterQuery?: string
+  onFilterChange?: (query: string) => void
+}
 
-  // Filter songs by search query
-  const filteredSongs = songs.filter((song) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      song.title.toLowerCase().includes(q) ||
-      (song.artist?.toLowerCase().includes(q) ?? false)
-    );
-  });
-
-  // Check if a route is active
-  const isRouteActive = (path: string) => location.pathname === path;
-  const isSongsActive = location.pathname === '/' || location.pathname.startsWith('/songs');
-  const isPlaylistsActive = location.pathname.startsWith('/playlists');
+/** Reusable sidebar list panel — matches the left panel from sketches/003-split-panel */
+export function Sidebar({
+  title,
+  items,
+  activeId,
+  onSelect,
+  onAdd,
+  searchPlaceholder = 'Filter...',
+  filterQuery = '',
+  onFilterChange,
+}: SidebarProps) {
+  const { sidebarWidth } = useUIStore()
 
   return (
     <div
-      className="h-full flex flex-col"
-      style={{
-        background: 'var(--color-bg-page)',
-        borderRight: '1px solid var(--color-border-standard)',
-      }}
+      className="flex flex-col shrink-0 bg-[#141414] border-r border-[#2e2e2e]"
+      style={{ width: `${sidebarWidth}px` }}
     >
-      {/* Header */}
-      <div
-        className="px-4 py-3 flex items-center gap-2"
-        style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
-      >
-        <span className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
-          ♫
+      {/* Header — title + add button */}
+      <div className="px-4 py-4 border-b border-[#2e2e2e] flex items-center justify-between">
+        <span className="text-[13px] font-medium text-[#898989] uppercase tracking-wider">
+          {title}
         </span>
-        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-          WorshipTeam
-        </span>
-      </div>
-
-      {/* Search */}
-      <div className="px-3 py-2">
-        <input
-          type="text"
-          placeholder="Search songs..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-3 py-1.5 text-sm rounded-md outline-none transition-colors"
-          style={{
-            background: 'var(--color-bg-deepest)',
-            border: '1px solid var(--color-border-subtle)',
-            color: 'var(--color-text-primary)',
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-accent)';
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
-          }}
-        />
-      </div>
-
-      {/* Songs section */}
-      <div className="px-3 pt-1 pb-1">
-        <button
-          onClick={() => navigate('/')}
-          className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium uppercase tracking-wider cursor-pointer"
-          style={{
-            color: isSongsActive ? 'var(--color-accent)' : 'var(--color-text-muted)',
-          }}
-        >
-          <span>Songs</span>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {songs.length}
-          </span>
-        </button>
-      </div>
-
-      {/* Song list */}
-      <div className="flex-1 overflow-y-auto px-2">
-        {filteredSongs.map((song) => {
-          const isActive = song.id === currentSongId;
-          return (
-            <button
-              key={song.id}
-              onClick={() => navigate(`/songs/${song.id}`)}
-              className="w-full text-left px-3 py-2 rounded-md mb-0.5 transition-colors cursor-pointer"
-              style={{
-                background: isActive ? 'var(--color-bg-deepest)' : 'transparent',
-                borderLeft: isActive ? '2px solid var(--color-accent)' : '2px solid transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'var(--color-bg-deepest)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                }
-              }}
-            >
-              <div
-                className="text-sm truncate"
-                style={{
-                  color: isActive ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                  fontWeight: isActive ? 500 : 400,
-                }}
-              >
-                {song.title}
-              </div>
-              {song.artist && (
-                <div
-                  className="text-xs truncate"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  {song.artist}
-                </div>
-              )}
-            </button>
-          );
-        })}
-
-        {filteredSongs.length === 0 && searchQuery && (
-          <div className="px-3 py-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            No songs found
-          </div>
+        {onAdd && (
+          <button
+            onClick={onAdd}
+            className="w-7 h-7 rounded-md border border-[#2e2e2e] text-[#b4b4b4] text-sm flex items-center justify-center hover:bg-[#242424] transition-colors"
+          >
+            +
+          </button>
         )}
       </div>
 
-      {/* Playlists section */}
-      <div
-        className="px-3 py-2"
-        style={{ borderTop: '1px solid var(--color-border-subtle)' }}
-      >
-        <button
-          onClick={() => navigate('/playlists')}
-          className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium uppercase tracking-wider cursor-pointer"
-          style={{
-            color: isPlaylistsActive ? 'var(--color-accent)' : 'var(--color-text-muted)',
-          }}
-        >
-          <span>Playlists</span>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {playlists.length}
-          </span>
-        </button>
+      {/* Search / filter input */}
+      {onFilterChange && (
+        <input
+          type="text"
+          placeholder={searchPlaceholder}
+          value={filterQuery}
+          onChange={(e) => onFilterChange(e.target.value)}
+          className="mx-4 my-3 bg-[#1a1a1a] border border-[#2e2e2e] rounded-md px-2.5 py-1.5 text-[13px] text-[#fafafa] outline-none placeholder:text-[#898989] focus:border-[#3ecf8e] transition-colors"
+        />
+      )}
 
-        {/* Playlist items */}
-        <div className="mt-1 max-h-32 overflow-y-auto">
-          {playlists.map((playlist) => {
-            const isActive = isRouteActive(`/playlists/${playlist.id}`);
-            return (
-              <button
-                key={playlist.id}
-                onClick={() => navigate(`/playlists/${playlist.id}`)}
-                className="w-full text-left px-3 py-1.5 rounded-md mb-0.5 text-sm transition-colors cursor-pointer"
-                style={{
-                  color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                  background: isActive ? 'var(--color-bg-deepest)' : 'transparent',
-                  fontWeight: isActive ? 500 : 400,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.background = 'var(--color-bg-deepest)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                {playlist.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Scrollable item list */}
+      <div className="flex-1 overflow-y-auto">
+        {items.map((item) => {
+          const isActive = item.id === activeId
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelect(item.id)}
+              className={`w-full text-left px-4 py-3 border-b border-[#1e1e1e] cursor-pointer transition-colors ${
+                isActive
+                  ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
+                  : 'border-l-2 border-l-transparent hover:bg-[#1a1a1a]'
+              }`}
+            >
+              <div className="text-sm font-medium text-[#fafafa] truncate">
+                {item.title}
+              </div>
+              <div className="text-xs text-[#898989] mt-0.5 flex items-center gap-2">
+                {item.badge && (
+                  <span className="font-mono text-[11px] bg-[rgba(62,207,142,0.15)] text-[#3ecf8e] px-1.5 py-px rounded">
+                    {item.badge}
+                  </span>
+                )}
+                <span className="truncate">{item.subtitle}</span>
+              </div>
+            </button>
+          )
+        })}
 
-      {/* Quick actions */}
-      <div
-        className="px-3 py-3 flex gap-2"
-        style={{ borderTop: '1px solid var(--color-border-subtle)' }}
-      >
-        <button
-          onClick={() => navigate('/songs/new')}
-          className="flex-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors cursor-pointer"
-          style={{
-            background: 'var(--color-accent)',
-            color: '#0f0f0f',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = '0.85';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '1';
-          }}
-        >
-          + Song
-        </button>
-        <button
-          onClick={() => {
-            const name = prompt('Playlist name:');
-            if (name?.trim()) {
-              navigate('/playlists');
-            }
-          }}
-          className="flex-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors cursor-pointer"
-          style={{
-            border: '1px solid var(--color-border-standard)',
-            color: 'var(--color-text-secondary)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-text-secondary)';
-            e.currentTarget.style.color = 'var(--color-text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-border-standard)';
-            e.currentTarget.style.color = 'var(--color-text-secondary)';
-          }}
-        >
-          + Playlist
-        </button>
+        {/* Empty state */}
+        {items.length === 0 && (
+          <div className="px-4 py-8 text-center text-xs text-[#898989]">
+            No items found
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
 }

@@ -1,61 +1,64 @@
-/** TransposeControls — per-song transpose buttons (-2, -1, key, +1, +2) */
+/** TransposeControls — semitone transpose button bar with flat/sharp toggle */
 
 import { transposeKey } from '../utils/transpose';
 
-interface TransposeControlsProps {
-  originalKey: string;
-  semitones: number;
-  onChange: (semitones: number) => void;
-  size?: 'sm' | 'md';
+export interface TransposeControlsProps {
+  currentKey: string;
+  transpose: number;
+  useFlats: boolean;
+  onTransposeChange: (semitones: number) => void;
+  onFlatsToggle: () => void;
 }
 
 export function TransposeControls({
-  originalKey,
-  semitones,
-  onChange,
-  size = 'sm',
+  currentKey,
+  transpose,
+  useFlats,
+  onTransposeChange,
+  onFlatsToggle,
 }: TransposeControlsProps) {
-  const displayKey = transposeKey(originalKey, semitones);
-  const btnClass = size === 'sm'
-    ? 'px-1.5 py-0.5 text-xs'
-    : 'px-2.5 py-1 text-sm';
+  const effectiveKey = transposeKey(currentKey, transpose, useFlats);
+
+  const offsets = [-5, -2, -1, 0, 1, 2, 5];
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2 rounded-lg border border-[#2e2e2e] bg-[#171717] p-2.5">
+      {offsets.map((offset) => {
+        const isCenter = offset === 0;
+
+        if (isCenter) {
+          // Center key display
+          return (
+            <button
+              key={offset}
+              className="flex h-8 min-w-[2.5rem] items-center justify-center rounded-md border border-[rgba(62,207,142,0.3)] bg-[rgba(62,207,142,0.15)] px-2 text-sm font-medium text-[#3ecf8e]"
+              disabled
+            >
+              {effectiveKey}
+            </button>
+          );
+        }
+
+        const label = offset > 0 ? `+${offset}` : `${offset}`;
+
+        return (
+          <button
+            key={offset}
+            onClick={() => onTransposeChange(transpose + offset)}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-[#2e2e2e] bg-[#242424] text-xs font-medium text-[#b4b4b4] transition-colors hover:bg-[#2e2e2e] hover:text-[#fafafa] active:bg-[#363636]"
+          >
+            {label}
+          </button>
+        );
+      })}
+
+      {/* Flat / Sharp toggle */}
       <button
-        type="button"
-        onClick={() => onChange(semitones - 2)}
-        className={`${btnClass} rounded bg-[var(--color-bg-deepest)] border border-[var(--color-border-standard)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-prominent)] transition-colors`}
-        title="Transpose down 2"
+        onClick={onFlatsToggle}
+        className="ml-1 flex h-8 w-8 items-center justify-center rounded-md border border-[#2e2e2e] bg-[#242424] text-sm font-medium text-[#b4b4b4] transition-colors hover:bg-[#2e2e2e] hover:text-[#fafafa] active:bg-[#363636]"
+        title={useFlats ? 'Switch to sharps' : 'Switch to flats'}
       >
-        -2
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(semitones - 1)}
-        className={`${btnClass} rounded bg-[var(--color-bg-deepest)] border border-[var(--color-border-standard)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-prominent)] transition-colors`}
-        title="Transpose down 1"
-      >
-        -1
-      </button>
-      <span className={`${size === 'sm' ? 'text-xs' : 'text-sm'} min-w-[2rem] text-center font-medium text-[var(--color-text-primary)]`}>
-        {displayKey}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(semitones + 1)}
-        className={`${btnClass} rounded bg-[var(--color-bg-deepest)] border border-[var(--color-border-standard)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-prominent)] transition-colors`}
-        title="Transpose up 1"
-      >
-        +1
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(semitones + 2)}
-        className={`${btnClass} rounded bg-[var(--color-bg-deepest)] border border-[var(--color-border-standard)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-prominent)] transition-colors`}
-        title="Transpose up 2"
-      >
-        +2
+        {useFlats ? '♭' : '♯'}
       </button>
     </div>
   );

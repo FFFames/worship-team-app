@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSong, useSongs } from '../hooks/useSongs';
+import { useSong } from '../hooks/useSong';
+import { useSongs } from '../hooks/useSongs';
 import { usePlaylists } from '../hooks/usePlaylists';
-import { usePlaylist } from '../hooks/usePlaylists';
+import { usePlaylist } from '../hooks/usePlaylist';
 import ChordDisplay from '../components/ChordDisplay';
 import TransposeControls from '../components/TransposeControls';
 

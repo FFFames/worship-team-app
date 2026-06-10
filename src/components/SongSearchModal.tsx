@@ -1,6 +1,5 @@
 /** SongSearchModal — modal dialog for searching and adding songs to a playlist */
 
-import { useState } from 'react';
 import { useSongs } from '../hooks/useSongs';
 
 interface SongSearchModalProps {
@@ -11,15 +10,9 @@ interface SongSearchModalProps {
 }
 
 export function SongSearchModal({ open, onClose, onAdd, existingSongIds }: SongSearchModalProps) {
-  const [query, setQuery] = useState('');
-  const { songs, loading, search } = useSongs();
+  const { songs, loading, searchQuery, setSearchQuery } = useSongs();
 
   if (!open) return null;
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    search(query);
-  }
 
   function handleAdd(songId: string) {
     onAdd(songId);
@@ -41,24 +34,18 @@ export function SongSearchModal({ open, onClose, onAdd, existingSongIds }: SongS
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
+        <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
           <div className="flex gap-2">
             <input
               type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title or artist..."
               className="flex-1 px-3 py-2 text-sm rounded-lg bg-[var(--color-bg-deepest)] border border-[var(--color-border-standard)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]"
               autoFocus
             />
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium rounded-full bg-[var(--color-accent)] text-[var(--color-bg-deepest)] hover:opacity-90 transition-opacity"
-            >
-              Search
-            </button>
           </div>
-        </form>
+        </div>
 
         {/* Results */}
         <div className="max-h-80 overflow-y-auto">
@@ -68,7 +55,7 @@ export function SongSearchModal({ open, onClose, onAdd, existingSongIds }: SongS
 
           {!loading && songs.length === 0 && (
             <div className="px-4 py-8 text-center text-[var(--color-text-muted)] text-sm">
-              {query ? 'No songs found' : 'Type to search for songs'}
+              {searchQuery ? 'No songs found' : 'Type to search for songs'}
             </div>
           )}
 

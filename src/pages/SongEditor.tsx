@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSongEditorStore } from '../store/songEditorStore';
-import { useSong } from '../hooks/useSongs';
+import { useSong } from '../hooks/useSong';
 import { useSongs as useSongsList } from '../hooks/useSongs';
 import ChordDisplay from '../components/ChordDisplay';
 import TransposeControls, { ALL_KEYS } from '../components/TransposeControls';
