@@ -1,21 +1,17 @@
 /** PlaylistDetail — single playlist management with song list, reorder, transpose, and actions */
 
 import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { usePlaylists } from '../hooks/usePlaylists'
 import { SongSearchModal } from '../components/SongSearchModal'
 import { transposeKey } from '../utils/transpose'
 import type { PlaylistSong } from '../types/database'
 
-interface PlaylistDetailProps {
-  playlistId: string
-  playlistData: ReturnType<typeof usePlaylist>
-  onPlaylistDeleted?: () => void
-}
-
-export default function PlaylistDetail({ playlistId, playlistData, onPlaylistDeleted }: PlaylistDetailProps) {
+export default function PlaylistDetail() {
+  const { id: playlistId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const playlistData = usePlaylist(playlistId)
   const { updatePlaylist } = usePlaylists()
   const { playlist, songs, loading, error, addSong, removeSong, reorderSongs, setTranspose } = playlistData
 
@@ -27,16 +23,13 @@ export default function PlaylistDetail({ playlistId, playlistData, onPlaylistDel
   // Per-song quick transpose offsets (-2, -1, 0, +1, +2)
   const TRANSPOSE_OFFSETS = [-2, -1, 0, 1, 2]
 
-  // Suppress unused prop warning — used by parent for post-delete cleanup
-  void onPlaylistDeleted
-
   // Build set of song IDs already in the playlist
   const existingSongIds = new Set(songs.map((ps) => ps.song_id))
 
   // Editable playlist name
   async function handleNameSave() {
     const name = nameDraft.trim()
-    if (!name || !playlist) return
+    if (!name || !playlist || !playlistId) return
     try {
       await updatePlaylist(playlistId, { name })
       setEditingName(false)

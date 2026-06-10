@@ -11,8 +11,10 @@ const MARGIN_TOP = 15;
 const MARGIN_BOTTOM = 12;
 const COL_LEFT_X = 10;
 const COL_RIGHT_X = 110;
-const COL_W = 90;
-const CONTENT_H = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
+const _COL_W = 90;
+const _CONTENT_H = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
+void _COL_W;
+void _CONTENT_H;
 
 interface ColumnState {
   x: number;

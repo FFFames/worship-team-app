@@ -9,11 +9,14 @@ interface SongEditorState {
   transpose: number;
   useFlats: boolean;
   isDirty: boolean;
+  editingSongId: string | null;
   setRawText: (text: string) => void;
   setParsedContent: (content: SongContent | null) => void;
   setDetectedKey: (key: string) => void;
   setTranspose: (semitones: number) => void;
   setUseFlats: (useFlats: boolean) => void;
+  toggleFlats: () => void;
+  setEditingSongId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -24,12 +27,15 @@ export const useSongEditorStore = create<SongEditorState>((set) => ({
   transpose: 0,
   useFlats: false,
   isDirty: false,
+  editingSongId: null,
 
   setRawText: (text) => set({ rawText: text, isDirty: true }),
   setParsedContent: (content) => set({ parsedContent: content }),
   setDetectedKey: (key) => set({ detectedKey: key }),
   setTranspose: (semitones) => set({ transpose: semitones }),
   setUseFlats: (useFlats) => set({ useFlats }),
+  toggleFlats: () => set((s) => ({ useFlats: !s.useFlats })),
+  setEditingSongId: (id) => set({ editingSongId: id }),
   reset: () =>
     set({
       rawText: '',
@@ -38,5 +44,6 @@ export const useSongEditorStore = create<SongEditorState>((set) => ({
       transpose: 0,
       useFlats: false,
       isDirty: false,
+      editingSongId: null,
     }),
 }));

@@ -1,19 +1,15 @@
 /** PlaylistList — playlist management page with sidebar list and inline detail view */
 
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usePlaylists } from '../hooks/usePlaylists'
-import { usePlaylist } from '../hooks/usePlaylists'
-import PlaylistDetail from './PlaylistDetail'
 
 export default function PlaylistList() {
-  const { playlists, loading, error, createPlaylist, deletePlaylist, refresh } = usePlaylists()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { playlists, loading, error, createPlaylist, deletePlaylist } = usePlaylists()
+  const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
-  // Fetch full playlist data for the selected playlist
-  const selectedPlaylist = usePlaylist(selectedId ?? undefined)
 
   async function handleCreate() {
     const name = newName.trim()
@@ -22,7 +18,7 @@ export default function PlaylistList() {
       const pl = await createPlaylist(name)
       setNewName('')
       setCreating(false)
-      setSelectedId(pl.id)
+      navigate(`/playlists/${pl.id}`)
     } catch (err) {
       console.error('Failed to create playlist:', err)
     }
@@ -32,9 +28,6 @@ export default function PlaylistList() {
     try {
       await deletePlaylist(id)
       setConfirmDeleteId(null)
-      if (selectedId === id) {
-        setSelectedId(null)
-      }
     } catch (err) {
       console.error('Failed to delete playlist:', err)
     }
@@ -103,21 +96,16 @@ export default function PlaylistList() {
           )}
 
           {playlists.map((pl) => {
-            const isActive = pl.id === selectedId
             const isConfirming = pl.id === confirmDeleteId
 
             return (
               <div
                 key={pl.id}
-                className={`border-b border-[#1e1e1e] ${
-                  isActive
-                    ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
-                    : 'border-l-2 border-l-transparent hover:bg-[#1a1a1a]'
-                } transition-colors`}
+                className={`border-b border-[#1e1e1e] border-l-2 border-l-transparent hover:bg-[#1a1a1a] transition-colors`}
               >
                 <button
                   onClick={() => {
-                    setSelectedId(pl.id)
+                    navigate(`/playlists/${pl.id}`)
                     setConfirmDeleteId(null)
                   }}
                   className="w-full text-left px-4 py-3 cursor-pointer"
@@ -164,33 +152,20 @@ export default function PlaylistList() {
         </div>
       </div>
 
-      {/* Right panel — playlist detail or empty state */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {selectedId ? (
-          <PlaylistDetail
-            playlistId={selectedId}
-            playlistData={selectedPlaylist}
-            onPlaylistDeleted={() => {
-              setSelectedId(null)
-              refresh()
-            }}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl mb-3">🎶</div>
-              <p className="text-[#898989] text-sm">
-                Select a playlist from the sidebar to manage it
-              </p>
-              <button
-                onClick={() => setCreating(true)}
-                className="mt-4 px-4 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:bg-[#2db87a] transition-colors"
-              >
-                + New Playlist
-              </button>
-            </div>
-          </div>
-        )}
+      {/* Right panel — empty state */}
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-3">🎶</div>
+          <p className="text-[#898989] text-sm">
+            Select a playlist from the sidebar to manage it
+          </p>
+          <button
+            onClick={() => setCreating(true)}
+            className="mt-4 px-4 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:bg-[#2db87a] transition-colors"
+          >
+            + New Playlist
+          </button>
+        </div>
       </div>
     </div>
   )
