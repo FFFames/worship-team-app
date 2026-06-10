@@ -238,11 +238,11 @@ function getMarker(type: SectionType): string {
 }
 
 /**
- * Auto-detect the song key from the first chord found in the content.
- * Returns empty string if no chords detected.
+ * Auto-detect the song key from the first chord found in the sections.
+ * Defaults to "C" if no chords are found.
  */
-export function detectKey(content: SongContent): string {
-  for (const section of content.sections) {
+export function detectKey(sections: Section[]): string {
+  for (const section of sections) {
     for (const line of section.lines) {
       if (line.chords.trim()) {
         const match = line.chords.trim().match(/^([A-G][#b]?)/);
@@ -250,5 +250,5 @@ export function detectKey(content: SongContent): string {
       }
     }
   }
-  return '';
+  return 'C';
 }

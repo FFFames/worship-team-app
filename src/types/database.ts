@@ -109,3 +109,9 @@ export type VideoBackground = {
   is_default: boolean;
   created_at: string;
 };
+
+/** Data needed to insert a new song (omits server-generated fields) */
+export type InsertSong = Omit<Song, 'id' | 'created_at' | 'updated_at' | 'created_by'>;
+
+/** Partial data for updating an existing song */
+export type UpdateSong = Partial<InsertSong>;

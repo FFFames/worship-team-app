@@ -1,52 +1,39 @@
 /** Song editor store — manages state for the chord/lyrics editor */
 
-import { create } from 'zustand';
-import type { SongContent } from '../types/database';
-import { parseChordLyrics, detectKey } from '../utils/chordParser';
+import { create } from 'zustand'
+import type { SongContent } from '../types/database'
 
 interface SongEditorState {
-  /** Raw text in the editor textarea */
-  rawText: string;
-  /** Parsed structured content */
-  parsedContent: SongContent | null;
-  /** Auto-detected key from chords */
-  detectedKey: string;
-  /** Current transpose semitones (preview only, not saved) */
-  transpose: number;
-  /** Whether to use flats instead of sharps */
-  useFlats: boolean;
-  /** Whether we're editing an existing song */
-  editingSongId: string | null;
-
-  setRawText: (text: string) => void;
-  parse: () => void;
-  setTranspose: (semitones: number) => void;
-  setUseFlats: (useFlats: boolean) => void;
-  setEditingSongId: (id: string | null) => void;
-  reset: () => void;
+  rawText: string
+  parsedContent: SongContent | null
+  detectedKey: string
+  transpose: number // semitones
+  useFlats: boolean
+  isDirty: boolean
+  editingSongId: string | null // null = new song
+  setRawText: (text: string) => void
+  setParsedContent: (content: SongContent | null) => void
+  setDetectedKey: (key: string) => void
+  setTranspose: (semitones: number) => void
+  toggleFlats: () => void
+  setEditingSongId: (id: string | null) => void
+  reset: () => void
 }
 
-export const useSongEditorStore = create<SongEditorState>((set, get) => ({
+export const useSongEditorStore = create<SongEditorState>((set) => ({
   rawText: '',
   parsedContent: null,
   detectedKey: '',
   transpose: 0,
   useFlats: false,
+  isDirty: false,
   editingSongId: null,
 
-  setRawText: (text) => set({ rawText: text }),
-
-  parse: () => {
-    const { rawText } = get();
-    const content = parseChordLyrics(rawText);
-    const key = detectKey(content);
-    set({ parsedContent: content, detectedKey: key });
-  },
-
+  setRawText: (text) => set({ rawText: text, isDirty: true }),
+  setParsedContent: (content) => set({ parsedContent: content }),
+  setDetectedKey: (key) => set({ detectedKey: key }),
   setTranspose: (semitones) => set({ transpose: semitones }),
-
-  setUseFlats: (useFlats) => set({ useFlats }),
-
+  toggleFlats: () => set((s) => ({ useFlats: !s.useFlats })),
   setEditingSongId: (id) => set({ editingSongId: id }),
 
   reset: () =>
@@ -56,6 +43,7 @@ export const useSongEditorStore = create<SongEditorState>((set, get) => ({
       detectedKey: '',
       transpose: 0,
       useFlats: false,
+      isDirty: false,
       editingSongId: null,
     }),
-}));
+}))

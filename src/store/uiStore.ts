@@ -1,21 +1,18 @@
-/** UI store — global UI state (sidebar, theme) */
+/** UI store — global UI state (sidebar, mobile menu) */
 
-import { create } from 'zustand';
+import { create } from 'zustand'
 
-interface UiState {
-  /** Whether the sidebar is open */
-  sidebarOpen: boolean;
-  /** Current theme */
-  theme: 'dark';
-
-  toggleSidebar: () => void;
-  setSidebarOpen: (open: boolean) => void;
+interface UIState {
+  sidebarWidth: number // default 300
+  isMobileMenuOpen: boolean
+  setSidebarWidth: (width: number) => void
+  toggleMobileMenu: () => void
 }
 
-export const useUiStore = create<UiState>((set) => ({
-  sidebarOpen: true,
-  theme: 'dark',
+export const useUIStore = create<UIState>((set) => ({
+  sidebarWidth: 300,
+  isMobileMenuOpen: false,
 
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-}));
+  setSidebarWidth: (width) => set({ sidebarWidth: width }),
+  toggleMobileMenu: () => set((s) => ({ isMobileMenuOpen: !s.isMobileMenuOpen })),
+}))
