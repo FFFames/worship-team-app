@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSongEditorStore } from '../store/songEditorStore'
-import { useSong } from '../hooks/useSong'
+import { useSong } from '../hooks/useSongs'
 import { useSongs } from '../hooks/useSongs'
 import { parseChordLyrics, detectKey } from '../utils/chordParser'
 import type { SongLine } from '../types/database'

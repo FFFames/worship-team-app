@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usePlaylist } from '../hooks/usePlaylist'
+import { usePlaylist } from '../hooks/usePlaylists'
 import { usePlaylists } from '../hooks/usePlaylists'
 import { SongSearchModal } from '../components/SongSearchModal'
 import { transposeKey } from '../utils/transpose'

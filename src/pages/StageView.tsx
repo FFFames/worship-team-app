@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { usePlaylist } from '../hooks/usePlaylist';
+import { usePlaylist } from '../hooks/usePlaylists';
 import { ChordDisplay } from '../components/ChordDisplay';
 import { transposeKey } from '../utils/transpose';
 

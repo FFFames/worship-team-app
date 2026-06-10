@@ -1,14 +1,14 @@
-/** Hook for fetching and managing the song library with search */
+/** Hooks for fetching and managing songs — useSongs for the library, useSong for a single song */
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Song, InsertSong, UpdateSong } from '../types/database'
+import type { Song, SongInsert } from '../types/database'
 
 export function useSongs() {
   const [songs, setSongs] = useState<Song[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState<string>('')
 
   const fetchSongs = useCallback(async (query: string) => {
     setLoading(true)
@@ -37,7 +37,12 @@ export function useSongs() {
     fetchSongs(searchQuery)
   }, [searchQuery, fetchSongs])
 
-  const addSong = useCallback(async (song: InsertSong): Promise<Song> => {
+  /** Filter songs by title or artist via Supabase ilike */
+  const search = useCallback((query: string) => {
+    setSearchQuery(query)
+  }, [])
+
+  const addSong = useCallback(async (song: SongInsert): Promise<Song> => {
     const { data, error: err } = await supabase
       .from('songs')
       .insert(song)
@@ -50,7 +55,7 @@ export function useSongs() {
     return newSong
   }, [])
 
-  const updateSong = useCallback(async (id: string, updates: UpdateSong): Promise<void> => {
+  const updateSong = useCallback(async (id: string, updates: Partial<SongInsert>): Promise<void> => {
     const { error: err } = await supabase
       .from('songs')
       .update(updates)
@@ -72,9 +77,74 @@ export function useSongs() {
     setSongs((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
+  /** Re-fetch from Supabase */
   const refresh = useCallback(() => {
     fetchSongs(searchQuery)
   }, [fetchSongs, searchQuery])
 
-  return { songs, loading, error, searchQuery, setSearchQuery, addSong, updateSong, deleteSong, refresh }
+  return {
+    songs, loading, error,
+    search, searchQuery, setSearchQuery,
+    addSong, updateSong, deleteSong, refresh,
+  }
+}
+
+export function useSong(id: string | undefined) {
+  const [song, setSong] = useState<Song | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) {
+      setSong(null)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function fetchSong() {
+      setLoading(true)
+      const { data, error: err } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (cancelled) return
+      if (err) {
+        setError(err.message)
+      } else {
+        setSong(data as Song)
+      }
+      setLoading(false)
+    }
+
+    fetchSong()
+    return () => { cancelled = true }
+  }, [id])
+
+  const updateSong = useCallback(async (updates: Partial<SongInsert>): Promise<void> => {
+    if (!id) return
+    const { error: err } = await supabase
+      .from('songs')
+      .update(updates)
+      .eq('id', id)
+
+    if (err) throw new Error(err.message)
+    setSong((prev) => (prev ? { ...prev, ...updates } : prev))
+  }, [id])
+
+  const deleteSong = useCallback(async (): Promise<void> => {
+    if (!id) return
+    const { error: err } = await supabase
+      .from('songs')
+      .delete()
+      .eq('id', id)
+
+    if (err) throw new Error(err.message)
+    setSong(null)
+  }, [id])
+
+  return { song, loading, error, updateSong, deleteSong }
 }

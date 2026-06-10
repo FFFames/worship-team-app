@@ -1,8 +1,8 @@
-/** Hook for fetching and managing playlists */
+/** Hooks for fetching and managing playlists and their songs */
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Playlist, PlaylistInsert } from '../types/database'
+import type { Playlist, PlaylistInsert, PlaylistSong } from '../types/database'
 
 export function usePlaylists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
@@ -43,10 +43,7 @@ export function usePlaylists() {
     return newPlaylist
   }, [])
 
-  const updatePlaylist = useCallback(async (
-    id: string,
-    updates: Partial<Pick<Playlist, 'name' | 'description'>>
-  ): Promise<void> => {
+  const updatePlaylist = useCallback(async (id: string, updates: Partial<PlaylistInsert>): Promise<void> => {
     const { error: err } = await supabase
       .from('playlists')
       .update(updates)
@@ -69,4 +66,117 @@ export function usePlaylists() {
   }, [])
 
   return { playlists, loading, error, createPlaylist, updatePlaylist, deletePlaylist, refresh: fetchPlaylists }
+}
+
+export function usePlaylist(playlistId: string | undefined) {
+  const [playlist, setPlaylist] = useState<Playlist | null>(null)
+  const [songs, setSongs] = useState<PlaylistSong[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchPlaylist = useCallback(async () => {
+    if (!playlistId) {
+      setPlaylist(null)
+      setSongs([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError(null)
+
+    // Fetch playlist metadata
+    const { data: plData, error: plErr } = await supabase
+      .from('playlists')
+      .select('*')
+      .eq('id', playlistId)
+      .single()
+
+    if (plErr) {
+      setError(plErr.message)
+      setLoading(false)
+      return
+    }
+    setPlaylist(plData as Playlist)
+
+    // Fetch playlist songs joined with song details, ordered by position
+    const { data: psData, error: psErr } = await supabase
+      .from('playlist_songs')
+      .select('*, song:songs(*)')
+      .eq('playlist_id', playlistId)
+      .order('position', { ascending: true })
+
+    if (psErr) {
+      setError(psErr.message)
+    } else {
+      setSongs(psData as PlaylistSong[])
+    }
+    setLoading(false)
+  }, [playlistId])
+
+  useEffect(() => {
+    fetchPlaylist()
+  }, [fetchPlaylist])
+
+  /** Add a song at the next available position */
+  const addSong = useCallback(async (songId: string): Promise<void> => {
+    if (!playlistId) return
+
+    const nextPos = songs.length > 0
+      ? Math.max(...songs.map((s) => s.position)) + 1
+      : 0
+
+    const { error: err } = await supabase
+      .from('playlist_songs')
+      .insert({ playlist_id: playlistId, song_id: songId, position: nextPos })
+
+    if (err) throw new Error(err.message)
+    await fetchPlaylist()
+  }, [playlistId, songs, fetchPlaylist])
+
+  /** Remove a song by playlist_song id */
+  const removeSong = useCallback(async (playlistSongId: string): Promise<void> => {
+    if (!playlistId) return
+
+    const { error: err } = await supabase
+      .from('playlist_songs')
+      .delete()
+      .eq('id', playlistSongId)
+
+    if (err) throw new Error(err.message)
+    await fetchPlaylist()
+  }, [fetchPlaylist])
+
+  /** Reorder songs by providing an array of playlist_song ids in the desired order */
+  const reorderSongs = useCallback(async (orderedIds: string[]): Promise<void> => {
+    if (!playlistId) return
+
+    const updates = orderedIds.map((psId, index) =>
+      supabase
+        .from('playlist_songs')
+        .update({ position: index })
+        .eq('id', psId)
+    )
+
+    await Promise.all(updates)
+    await fetchPlaylist()
+  }, [fetchPlaylist])
+
+  /** Set transpose semitones for a specific playlist song entry */
+  const setTranspose = useCallback(async (playlistSongId: string, semitones: number): Promise<void> => {
+    if (!playlistId) return
+
+    const { error: err } = await supabase
+      .from('playlist_songs')
+      .update({ transpose_semitones: semitones })
+      .eq('id', playlistSongId)
+
+    if (err) throw new Error(err.message)
+    setSongs((prev) =>
+      prev.map((ps) =>
+        ps.id === playlistSongId ? { ...ps, transpose_semitones: semitones } : ps
+      )
+    )
+  }, [])
+
+  return { playlist, songs, loading, error, addSong, removeSong, reorderSongs, setTranspose, refresh: fetchPlaylist }
 }

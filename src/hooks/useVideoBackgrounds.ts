@@ -7,18 +7,16 @@ import type { VideoBackground } from '../types/database'
 export function useVideoBackgrounds() {
   const [backgrounds, setBackgrounds] = useState<VideoBackground[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const fetchBackgrounds = useCallback(async () => {
     setLoading(true)
-    setError(null)
     const { data, error: err } = await supabase
       .from('video_backgrounds')
       .select('*')
       .order('created_at', { ascending: true })
 
     if (err) {
-      setError(err.message)
+      console.error('Failed to fetch backgrounds:', err.message)
     } else {
       setBackgrounds(data as VideoBackground[])
     }
@@ -48,5 +46,5 @@ export function useVideoBackgrounds() {
     setBackgrounds((prev) => prev.filter((b) => b.id !== id))
   }, [])
 
-  return { backgrounds, loading, error, addBackground, removeBackground, refresh: fetchBackgrounds }
+  return { backgrounds, loading, addBackground, removeBackground }
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePlaylists } from '../hooks/usePlaylists'
-import { usePlaylist } from '../hooks/usePlaylist'
+import { usePlaylist } from '../hooks/usePlaylists'
 import PlaylistDetail from './PlaylistDetail'
 
 export default function PlaylistList() {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useSong } from '../hooks/useSong'
+import { useSong } from '../hooks/useSongs'
 import { useSongs } from '../hooks/useSongs'
 import { ChordDisplay } from '../components/ChordDisplay'
 import { TransposeControls } from '../components/TransposeControls'

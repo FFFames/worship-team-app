@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { usePlaylist } from '../hooks/usePlaylist';
+import { usePlaylist } from '../hooks/usePlaylists';
 import { exportPlaylistToPDF } from '../utils/pdfExport';
 
 export default function PdfExport() {
