@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorshipTeam — Top Nav Variant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f0f0f; color: #fafafa; height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Top Navigation */
+    .navbar {
+      height: 56px;
+      background: #171717;
+      border-bottom: 1px solid #2e2e2e;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 32px;
+      flex-shrink: 0;
+    }
+    .navbar-logo { font-size: 18px; font-weight: 600; color: #3ecf8e; margin-right: 16px; }
+    .navbar-logo span { color: #fafafa; }
+    .navbar-links { display: flex; gap: 4px; }
+    .navbar-link {
+      padding: 8px 16px;
+      border-radius: 6px;
+      color: #b4b4b4;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .navbar-link:hover { background: #242424; color: #fafafa; }
+    .navbar-link.active { background: rgba(62, 207, 142, 0.1); color: #3ecf8e; }
+    .navbar-spacer { flex: 1; }
+    .search-input {
+      background: #242424;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #fafafa;
+      font-size: 13px;
+      width: 260px;
+      outline: none;
+    }
+    .search-input::placeholder { color: #898989; }
+    .search-input:focus { border-color: rgba(62, 207, 142, 0.5); }
+    .btn-primary {
+      background: #3ecf8e;
+      color: #0f0f0f;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Content */
+    .content { flex: 1; overflow-y: auto; }
+    .page-header {
+      padding: 24px 32px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .page-title { font-size: 24px; font-weight: 400; }
+    .page-body { padding: 24px 32px; }
+
+    /* Table style */
+    .song-table { width: 100%; border-collapse: collapse; }
+    .song-table th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #898989;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #2e2e2e;
+    }
+    .song-table td {
+      padding: 14px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid #242424;
+    }
+    .song-table tr { cursor: pointer; transition: background 0.1s; }
+    .song-table tbody tr:hover { background: #1a1a1a; }
+    .song-key {
+      font-family: 'Source Code Pro', monospace;
+      background: rgba(62, 207, 142, 0.15);
+      color: #3ecf8e;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .song-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid #2e2e2e;
+      color: #b4b4b4;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { border-color: #363636; color: #fafafa; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #171717;
+      border: 1px solid #2e2e2e;
+      border-radius: 12px;
+      padding: 20px 24px;
+      flex: 1;
+    }
+    .stat-value { font-size: 28px; font-weight: 600; color: #3ecf8e; }
+    .stat-label { font-size: 13px; color: #898989; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="navbar-logo">♫ Worship<span>Team</span></div>
+    <div class="navbar-links">
+      <a class="navbar-link active" onclick="setActive(this)">Songs</a>
+      <a class="navbar-link" onclick="setActive(this)">Playlists</a>
+      <a class="navbar-link" onclick="setActive(this)">Stage</a>
+    </div>
+    <div class="navbar-spacer"></div>
+    <input class="search-input" placeholder="Search songs..." />
+    <button class="btn-primary">+ New Song</button>
+  </div>
+
+  <div class="content">
+    <div class="page-header">
+      <h1 class="page-title">Song Library</h1>
+    </div>
+    <div class="page-body">
+      <div class="stats-bar">
+        <div class="stat-card">
+          <div class="stat-value">24</div>
+          <div class="stat-label">Total Songs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">6</div>
+          <div class="stat-label">Playlists</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">3</div>
+          <div class="stat-label">This Week</div>
+        </div>
+      </div>
+      <table class="song-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Artist</th>
+            <th>Key</th>
+            <th>Added</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:#fafafa; font-weight:500">Amazing Grace</td>
+            <td style="color:#898989">John Newton</td>
+            <td><span class="song-key">G</span></td>
+            <td style="color:#898989">Jun 10, 2026</td>
+            <td class="song-actions">
+              <button class="btn-ghost">Edit</button>
+              <button class="btn-ghost">Delete</button>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#fafafa; font-weight:500">How Great Thou Art</td>
+            <td style="color:#898989">Stuart K. Hine</td>
+            <td><span class="song-key">C</span></td>
+            <td style="color:#898989">Jun 9, 2026</td>
+            <td class="song-actions">
+              <button class="btn-ghost">Edit</button>
+              <button class="btn-ghost">Delete</button>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#fafafa; font-weight:500">10,000 Reasons</td>
+            <td style="color:#898989">Matt Redman</td>
+            <td><span class="song-key">D</span></td>
+            <td style="color:#898989">Jun 8, 2026</td>
+            <td class="song-actions">
+              <button class="btn-ghost">Edit</button>
+              <button class="btn-ghost">Delete</button>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#fafafa; font-weight:500">Good Good Father</td>
+            <td style="color:#898989">Chris Tomlin</td>
+            <td><span class="song-key">A</span></td>
+            <td style="color:#898989">Jun 7, 2026</td>
+            <td class="song-actions">
+              <button class="btn-ghost">Edit</button>
+              <button class="btn-ghost">Delete</button>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#fafafa; font-weight:500">What a Beautiful Name</td>
+            <td style="color:#898989">Hillsong Worship</td>
+            <td><span class="song-key">D</span></td>
+            <td style="color:#898989">Jun 6, 2026</td>
+            <td class="song-actions">
+              <button class="btn-ghost">Edit</button>
+              <button class="btn-ghost">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function setActive(el) {
+      document.querySelectorAll('.navbar-link').forEach(l => l.classList.remove('active'));
+      el.classList.add('active');
+    }
+  </script>
+</body>
+</html>

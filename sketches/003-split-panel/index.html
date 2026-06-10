@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorshipTeam — Split Panel Variant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f0f0f; color: #fafafa; height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Top bar - minimal */
+    .topbar {
+      height: 48px;
+      background: #171717;
+      border-bottom: 1px solid #2e2e2e;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .logo { font-size: 16px; font-weight: 600; color: #3ecf8e; }
+    .logo span { color: #fafafa; }
+    .topbar-spacer { flex: 1; }
+    .topbar-actions { display: flex; gap: 8px; }
+    .btn-sm {
+      background: transparent;
+      border: 1px solid #2e2e2e;
+      color: #b4b4b4;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-sm:hover { border-color: #363636; color: #fafafa; }
+    .btn-sm.active { background: rgba(62, 207, 142, 0.1); border-color: rgba(62, 207, 142, 0.3); color: #3ecf8e; }
+
+    /* Split layout */
+    .split-container { flex: 1; display: flex; overflow: hidden; }
+    
+    /* Left panel - list */
+    .panel-left {
+      width: 300px;
+      background: #141414;
+      border-right: 1px solid #2e2e2e;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .panel-header {
+      padding: 16px;
+      border-bottom: 1px solid #2e2e2e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header-title { font-size: 13px; font-weight: 500; color: #898989; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid #2e2e2e;
+      color: #b4b4b4;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-icon:hover { background: #242424; }
+    .search-small {
+      margin: 12px 16px;
+      background: #1a1a1a;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #fafafa;
+      font-size: 13px;
+      outline: none;
+      width: calc(100% - 32px);
+    }
+    .search-small::placeholder { color: #898989; }
+    .song-list { flex: 1; overflow-y: auto; }
+    .song-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e1e1e;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .song-item:hover { background: #1a1a1a; }
+    .song-item.active { background: rgba(62, 207, 142, 0.08); border-left: 2px solid #3ecf8e; }
+    .song-item-title { font-size: 14px; font-weight: 500; }
+    .song-item-sub { font-size: 12px; color: #898989; margin-top: 2px; display: flex; gap: 8px; }
+    .key-badge {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 11px;
+      background: rgba(62, 207, 142, 0.15);
+      color: #3ecf8e;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    /* Right panel - detail */
+    .panel-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .detail-header {
+      padding: 20px 32px;
+      border-bottom: 1px solid #2e2e2e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .detail-title { font-size: 20px; font-weight: 400; }
+    .detail-artist { font-size: 14px; color: #898989; margin-top: 2px; }
+    .detail-actions { display: flex; gap: 8px; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #2e2e2e;
+      color: #b4b4b4;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-outline:hover { border-color: #363636; color: #fafafa; }
+    .btn-accent {
+      background: #3ecf8e;
+      color: #0f0f0f;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Chord display area */
+    .detail-body { flex: 1; overflow-y: auto; padding: 24px 32px; }
+    .transpose-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 10px 16px;
+      background: #171717;
+      border: 1px solid #2e2e2e;
+      border-radius: 8px;
+    }
+    .transpose-label { font-size: 12px; color: #898989; margin-right: 8px; }
+    .transpose-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #242424;
+      border: 1px solid #2e2e2e;
+      color: #b4b4b4;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Source Code Pro', monospace;
+    }
+    .transpose-btn:hover { background: #2e2e2e; color: #fafafa; }
+    .transpose-btn.current { background: rgba(62, 207, 142, 0.15); border-color: rgba(62, 207, 142, 0.3); color: #3ecf8e; }
+
+    .section { margin-bottom: 24px; }
+    .section-marker {
+      font-size: 12px;
+      font-weight: 500;
+      color: #898989;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .chord-line {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 14px;
+      color: #3ecf8e;
+      white-space: pre;
+      line-height: 1.6;
+    }
+    .lyric-line {
+      font-size: 16px;
+      color: #fafafa;
+      white-space: pre;
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">♫ Worship<span>Team</span></div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <button class="btn-sm active">Songs</button>
+      <button class="btn-sm">Playlists</button>
+      <button class="btn-sm">Present</button>
+    </div>
+  </div>
+
+  <div class="split-container">
+    <div class="panel-left">
+      <div class="panel-header">
+        <span class="panel-header-title">24 Songs</span>
+        <button class="btn-icon">+</button>
+      </div>
+      <input class="search-small" placeholder="Filter..." />
+      <div class="song-list">
+        <div class="song-item active" onclick="selectSong(this)">
+          <div class="song-item-title">Amazing Grace</div>
+          <div class="song-item-sub"><span class="key-badge">G</span> John Newton</div>
+        </div>
+        <div class="song-item" onclick="selectSong(this)">
+          <div class="song-item-title">How Great Thou Art</div>
+          <div class="song-item-sub"><span class="key-badge">C</span> Stuart K. Hine</div>
+        </div>
+        <div class="song-item" onclick="selectSong(this)">
+          <div class="song-item-title">10,000 Reasons</div>
+          <div class="song-item-sub"><span class="key-badge">D</span> Matt Redman</div>
+        </div>
+        <div class="song-item" onclick="selectSong(this)">
+          <div class="song-item-title">Good Good Father</div>
+          <div class="song-item-sub"><span class="key-badge">A</span> Chris Tomlin</div>
+        </div>
+        <div class="song-item" onclick="selectSong(this)">
+          <div class="song-item-title">What a Beautiful Name</div>
+          <div class="song-item-sub"><span class="key-badge">D</span> Hillsong Worship</div>
+        </div>
+        <div class="song-item" onclick="selectSong(this)">
+          <div class="song-item-title">King of My Heart</div>
+          <div class="song-item-sub"><span class="key-badge">Bb</span> John Mark Pantana</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-right">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title">Amazing Grace</div>
+          <div class="detail-artist">John Newton · Key of G</div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn-outline">Edit</button>
+          <button class="btn-accent">Add to Playlist</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="transpose-bar">
+          <span class="transpose-label">Transpose</span>
+          <button class="transpose-btn">-2</button>
+          <button class="transpose-btn">-1</button>
+          <button class="transpose-btn current">G</button>
+          <button class="transpose-btn">+1</button>
+          <button class="transpose-btn">+2</button>
+        </div>
+        
+        <div class="section">
+          <div class="chord-line">G                   G7              C              G</div>
+          <div class="lyric-line">Amazing grace how sweet the sound</div>
+          <div class="chord-line">     Em           D               G</div>
+          <div class="lyric-line">That saved a wretch like me</div>
+        </div>
+
+        <div class="section">
+          <div class="section-marker">** Chorus</div>
+          <div class="chord-line">C                  G              Em         D</div>
+          <div class="lyric-line">My chains are gone, I've been set free</div>
+          <div class="chord-line">C                  G              D          G</div>
+          <div class="lyric-line">My God, my Savior has ransomed me</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function selectSong(el) {
+      document.querySelectorAll('.song-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+    }
+  </script>
+</body>
+</html>
