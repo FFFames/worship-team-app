@@ -1,108 +1,123 @@
 /** PDF generation utility — exports a full playlist to a downloadable A4 PDF.
- *  Uses jsPDF with two-column layout for compact chord chart printing.
- *  Loads Thonburi font at runtime for full Thai character support. */
+ *  Uses html2canvas to render song content as images for perfect Thai font support,
+ *  then assembles them into a multi-page PDF via jsPDF.
+ *  This approach handles วรรณยุกต์ (tone marks) and complex Thai shaping correctly
+ *  because the browser's text renderer handles all OpenType GPOS/GSUB lookups. */
 
 import { jsPDF } from 'jspdf';
-import type { PlaylistSong } from '../types/database';
+import html2canvas from 'html2canvas';
+import type { PlaylistSong, Section } from '../types/database';
 import { transposeChordLine, transposeKey } from './transpose';
-
-const FONT_NAME = 'Thonburi';
-const FONT_URL = '/Thonburi.ttf';
-
-/** Cache the loaded font base64 to avoid re-fetching */
-let cachedFontBase64: string | null = null;
-
-/** Fetch and convert the Thonburi font to base64 */
-async function loadThaiFont(): Promise<string> {
-  if (cachedFontBase64) return cachedFontBase64;
-
-  const response = await fetch(FONT_URL);
-  if (!response.ok) throw new Error(`Failed to fetch font: ${response.status}`);
-
-  const arrayBuffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-
-  // Convert to base64 in chunks to avoid stack overflow
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  cachedFontBase64 = btoa(binary);
-  return cachedFontBase64;
-}
 
 const PAGE_W = 210; // A4 width mm
 const PAGE_H = 297; // A4 height mm
-const MARGIN_TOP = 15;
-const MARGIN_BOTTOM = 12;
-const COL_LEFT_X = 10;
-const COL_RIGHT_X = 110;
+const MARGIN = 12;
 
-interface ColumnState {
-  x: number;
-  y: number;
-  pageIndex: number;
-}
-
-function newPage(doc: jsPDF, state: ColumnState): ColumnState {
-  state.pageIndex++;
-  doc.addPage();
-  state.x = COL_LEFT_X;
-  state.y = MARGIN_TOP;
-  return state;
-}
-
-function nextColumn(doc: jsPDF, state: ColumnState): ColumnState {
-  if (state.x === COL_LEFT_X) {
-    state.x = COL_RIGHT_X;
-    state.y = MARGIN_TOP;
-  } else {
-    newPage(doc, state);
-  }
-  return state;
-}
+/** A4 at 96 DPI → 794×1123 px. Scale 2x for crisp rendering. */
+const PX_PER_MM = 96 / 25.4;
+const RENDER_SCALE = 2;
 
 /**
- * Export an entire playlist as a PDF chord chart and trigger a browser download.
- * Loads Thai font on first call, subsequent calls use cached font.
+ * Build the HTML for all songs in a playlist, render via html2canvas,
+ * split into A4 pages, and save as PDF.
  */
 export async function exportPlaylistToPDF(
   playlistName: string,
   playlistSongs: PlaylistSong[],
 ): Promise<void> {
-  // Load Thai font
-  const fontBase64 = await loadThaiFont();
+  // 1. Build the full HTML content
+  const html = buildPlaylistHTML(playlistName, playlistSongs);
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // 2. Create a hidden container and inject the HTML
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position: fixed; top: -9999px; left: 0;
+    width: ${(PAGE_W - MARGIN * 2) * PX_PER_MM}px;
+    font-family: 'Sukhumvit Set', 'Thonburi', 'Sarabun', sans-serif;
+    background: white; color: #000; padding: 0; margin: 0;
+    line-height: 1.5;
+  `;
+  container.innerHTML = html;
+  document.body.appendChild(container);
 
-  // Embed Thonburi font for Thai support — register normal, bold, italic variants
-  doc.addFileToVFS('Thonburi.ttf', fontBase64);
-  doc.addFont('Thonburi.ttf', FONT_NAME, 'normal');
-  doc.addFont('Thonburi.ttf', FONT_NAME, 'bold');
-  doc.addFont('Thonburi.ttf', FONT_NAME, 'italic');
+  try {
+    // 3. Render to canvas via html2canvas
+    const canvas = await html2canvas(container, {
+      scale: RENDER_SCALE,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
 
-  // Title page header
-  doc.setFont(FONT_NAME, 'bold');
-  doc.setFontSize(20);
-  doc.text(playlistName, PAGE_W / 2, 20, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont(FONT_NAME, 'normal');
-  doc.text(
-    `${playlistSongs.length} song${playlistSongs.length !== 1 ? 's' : ''}`,
-    PAGE_W / 2,
-    27,
-    { align: 'center' },
-  );
+    // 4. Split the tall canvas into A4 pages and build PDF
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const state: ColumnState = {
-    x: COL_LEFT_X,
-    y: 38,
-    pageIndex: 0,
-  };
+    const contentWidthMM = PAGE_W - MARGIN * 2;
+    const contentHeightMM = PAGE_H - MARGIN * 2;
 
-  for (const ps of playlistSongs) {
+    // How many mm the canvas represents total
+    const totalHeightMM = canvas.height / PX_PER_MM / RENDER_SCALE;
+    const pagesNeeded = Math.ceil(totalHeightMM / contentHeightMM);
+
+    for (let page = 0; page < pagesNeeded; page++) {
+      if (page > 0) doc.addPage();
+
+      // Calculate slice bounds in canvas pixels
+      const srcY = Math.round(page * (canvas.height / pagesNeeded));
+      const srcH = Math.round(canvas.height / pagesNeeded);
+
+      // Create a temporary canvas for this page slice
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = srcH;
+      const ctx = pageCanvas.getContext('2d')!;
+      ctx.drawImage(
+        canvas,
+        0, srcY, canvas.width, srcH,
+        0, 0, canvas.width, srcH,
+      );
+
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+      doc.addImage(
+        imgData,
+        'JPEG',
+        MARGIN,
+        MARGIN,
+        contentWidthMM,
+        contentHeightMM,
+      );
+    }
+
+    // 5. Page numbers
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(160, 160, 160);
+      doc.text(`${i} / ${totalPages}`, PAGE_W / 2, PAGE_H - 4, { align: 'center' });
+    }
+
+    doc.save(`${playlistName}.pdf`);
+  } finally {
+    // Clean up the hidden container
+    document.body.removeChild(container);
+  }
+}
+
+/** Build the HTML string for the full playlist content */
+function buildPlaylistHTML(playlistName: string, songs: PlaylistSong[]): string {
+  const parts: string[] = [];
+
+  // Title
+  parts.push(`
+    <div style="text-align: center; padding-bottom: 16px; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px;">
+      <div style="font-size: 28px; font-weight: bold; margin-bottom: 4px;">${esc(playlistName)}</div>
+      <div style="font-size: 14px; color: #666;">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
+    </div>
+  `);
+
+  for (const ps of songs) {
     const song = ps.song;
     if (!song) continue;
 
@@ -110,109 +125,64 @@ export async function exportPlaylistToPDF(
     const transposedKey =
       transpose !== 0 ? transposeKey(song.original_key, transpose) : song.original_key;
 
-    // --- Estimate song height to check if it fits ---
-    const sections = song.content_parsed?.sections ?? [];
-    let estimatedHeight = 12;
-    for (const section of sections) {
-      estimatedHeight += 5;
-      for (const line of section.lines) {
-        estimatedHeight += line.chords ? 7 : 0;
-        estimatedHeight += line.lyrics ? 6 : 0;
-      }
-      estimatedHeight += 4;
-    }
-    estimatedHeight += 10;
+    const sections: Section[] = song.content_parsed?.sections ?? [];
 
-    if (state.y + Math.min(estimatedHeight, 40) > PAGE_H - MARGIN_BOTTOM) {
-      nextColumn(doc, state);
-    }
+    parts.push(`<div style="margin-bottom: 24px;">`);
 
-    // --- Song title ---
-    doc.setFont(FONT_NAME, 'bold');
-    doc.setFontSize(14);
-    doc.text(song.title, state.x, state.y);
-    state.y += 6;
+    // Song title
+    parts.push(`<div style="font-size: 18px; font-weight: bold; margin-bottom: 2px;">${esc(song.title)}</div>`);
 
-    // --- Artist ---
+    // Artist
     if (song.artist) {
-      doc.setFont(FONT_NAME, 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(song.artist, state.x, state.y);
-      state.y += 5;
+      parts.push(`<div style="font-size: 12px; color: #888; margin-bottom: 2px;">${esc(song.artist)}</div>`);
     }
 
-    // --- Key ---
-    doc.setFont(FONT_NAME, 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    const keyLabel =
-      transpose !== 0
-        ? `Key: ${song.original_key} → ${transposedKey}`
-        : `Key: ${song.original_key}`;
-    doc.text(keyLabel, state.x, state.y);
-    state.y += 6;
+    // Key
+    const keyLabel = transpose !== 0
+      ? `Key: ${song.original_key} → ${transposedKey}`
+      : `Key: ${song.original_key}`;
+    parts.push(`<div style="font-size: 11px; color: #555; margin-bottom: 10px;">${esc(keyLabel)}</div>`);
 
-    // --- Chord + lyric lines ---
-    doc.setFont(FONT_NAME, 'normal');
-    doc.setFontSize(9);
-
+    // Sections
     for (const section of sections) {
-      if (state.y + 15 > PAGE_H - MARGIN_BOTTOM) {
-        nextColumn(doc, state);
-      }
-
       // Section marker
       if (section.marker) {
-        doc.setFont(FONT_NAME, 'italic');
-        doc.setFontSize(9);
-        doc.setTextColor(120, 120, 120);
-        doc.text(section.marker, state.x, state.y);
-        state.y += 5;
-        doc.setFont(FONT_NAME, 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
+        parts.push(`<div style="font-size: 11px; color: #999; font-style: italic; margin-top: 8px; margin-bottom: 4px;">${esc(section.marker)}</div>`);
       }
 
       for (const line of section.lines) {
-        if (state.y + 7 > PAGE_H - MARGIN_BOTTOM) {
-          nextColumn(doc, state);
-        }
-
-        // Chord line
+        // Chord line — green monospace
         if (line.chords) {
-          const transposedChords =
-            transpose !== 0
-              ? transposeChordLine(line.chords, transpose)
-              : line.chords;
-          doc.setTextColor(0, 128, 80);
-          doc.text(transposedChords, state.x, state.y);
-          state.y += 4;
+          const transposedChords = transpose !== 0
+            ? transposeChordLine(line.chords, transpose)
+            : line.chords;
+          parts.push(`<div style="font-family: 'Courier New', monospace; font-size: 12px; color: #008050; line-height: 1.3; white-space: pre;">${esc(transposedChords)}</div>`);
         }
 
         // Lyrics line
         if (line.lyrics) {
-          doc.setTextColor(0, 0, 0);
-          doc.text(line.lyrics, state.x, state.y);
-          state.y += 5;
+          parts.push(`<div style="font-size: 13px; line-height: 1.5; white-space: pre-wrap;">${esc(line.lyrics)}</div>`);
         }
       }
 
-      state.y += 3;
+      // Gap between sections
+      parts.push(`<div style="height: 6px;"></div>`);
     }
 
-    state.y += 6;
+    parts.push(`</div>`);
+
+    // Divider between songs
+    parts.push(`<div style="border-top: 1px solid #e8e8e8; margin: 8px 0 20px 0;"></div>`);
   }
 
-  // Page numbers
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFont(FONT_NAME, 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(160, 160, 160);
-    doc.text(`${i} / ${totalPages}`, PAGE_W / 2, PAGE_H - 5, { align: 'center' });
-  }
+  return parts.join('');
+}
 
-  doc.save(`${playlistName}.pdf`);
+/** Escape HTML special characters */
+function esc(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
