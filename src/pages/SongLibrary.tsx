@@ -139,7 +139,7 @@ export default function SongLibrary() {
 
       {/* ── Mobile: Full-width SongDetail with back button (< md) ── */}
       {selectedSong && (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#0f0f0f] md:hidden">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-[#0f0f0f] md:hidden">
           {/* Mobile back button */}
           <button
             onClick={() => setSelectedId(null)}
