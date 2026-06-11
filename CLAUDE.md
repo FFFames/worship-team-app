@@ -32,16 +32,22 @@ src/
 
 ## Supabase Schema Reference
 
+> **Migration:** Use `supabase/migrations/002_fix_schema_match_code.sql` for the corrected schema.
+
 ### songs
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | auto-generated |
 | title | text NOT NULL | |
 | artist | text nullable | |
-| original_key | text NOT NULL | e.g. "C", "G", "Bb" |
-| content_raw | text NOT NULL | original pasted text |
-| content_parsed | jsonb NOT NULL | structured { sections: [...] } |
-| created_by | uuid FK nullable | |
+| original_key | text NOT NULL DEFAULT 'C' | e.g. "C", "G", "Bb" |
+| tempo | integer nullable | |
+| time_signature | text nullable | |
+| raw_content | text NOT NULL DEFAULT '' | original pasted text |
+| sections | jsonb nullable | parsed `Section[]` (see below) |
+| user_id | text nullable | hardcoded 'default' |
+| tags | text[] nullable | |
+| favorite | boolean nullable | |
 | created_at | timestamptz | auto |
 | updated_at | timestamptz | auto via trigger |
 
@@ -50,8 +56,9 @@ src/
 |--------|------|-------|
 | id | uuid PK | auto |
 | name | text NOT NULL | |
-| description | text nullable | |
-| created_by | uuid FK nullable | |
+| date | text nullable | ISO date string e.g. "2026-06-11" |
+| notes | text nullable | |
+| user_id | text nullable | hardcoded 'default' |
 | created_at | timestamptz | auto |
 | updated_at | timestamptz | auto via trigger |
 
@@ -61,10 +68,10 @@ src/
 | id | uuid PK | auto |
 | playlist_id | uuid FK → playlists | CASCADE delete |
 | song_id | uuid FK → songs | CASCADE delete |
-| position | integer NOT NULL | ordering |
-| transpose_semitones | integer default 0 | per-song transpose |
+| transpose | integer NOT NULL DEFAULT 0 | per-song semitone offset |
+| "order" | integer NOT NULL DEFAULT 0 | must double-quote (reserved word) |
+| created_at | timestamptz | auto |
 | UNIQUE | (playlist_id, song_id) | |
-| UNIQUE | (playlist_id, position) | |
 
 ### video_backgrounds
 | Column | Type | Notes |
@@ -75,19 +82,17 @@ src/
 | is_default | boolean default false | |
 | created_at | timestamptz | auto |
 
-## content_parsed JSONB Structure
+## sections JSONB Structure
 ```json
-{
-  "sections": [
-    {
-      "type": "verse",
-      "marker": "",
-      "lines": [
-        { "chords": "C    G    Am   F", "lyrics": "Amazing grace how sweet the sound" }
-      ]
-    }
-  ]
-}
+[
+  {
+    "type": "verse",
+    "marker": "",
+    "lines": [
+      { "chords": "C    G    Am   F", "lyrics": "Amazing grace how sweet the sound" }
+    ]
+  }
+]
 ```
 
 Section type → marker mapping:
@@ -123,7 +128,7 @@ Dark-mode-native inspired by Supabase:
 
 ## Environment Setup
 1. Create Supabase project at supabase.com
-2. Run `supabase/migrations/001_initial.sql` in SQL Editor
+2. Run `supabase/migrations/002_fix_schema_match_code.sql` in SQL Editor
 3. Copy `.env.example` to `.env.local`
 4. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 

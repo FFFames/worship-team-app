@@ -114,7 +114,7 @@ export default function PlaylistList() {
                     {pl.name}
                   </div>
                   <div className="text-xs text-[#898989] mt-0.5">
-                    {pl.description?.slice(0, 60) || 'No description'}
+                    {pl.notes?.slice(0, 60) || 'No description'}
                   </div>
                 </button>
 

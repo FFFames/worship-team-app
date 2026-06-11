@@ -185,9 +185,9 @@ export default function SongEditor() {
       setTitle(song.title)
       setArtist(song.artist ?? '')
       setSelectedKey(song.original_key)
-      setRawText(song.content_raw)
+      setRawText(song.raw_content)
       // Auto-parse on load
-      const content = parseChordLyrics(song.content_raw)
+      const content = parseChordLyrics(song.raw_content)
       setParsedContent(content)
       const key = detectKey(content.sections)
       setDetectedKey(key)
@@ -242,7 +242,8 @@ export default function SongEditor() {
       return
     }
 
-    const content = parsedContent ?? { sections: [] }
+    // Parse content if not already parsed, to ensure sections are saved
+    const contentToSave = parsedContent ?? parseChordLyrics(rawText)
     setSaving(true)
     setSaveError(null)
 
@@ -252,8 +253,8 @@ export default function SongEditor() {
           title: title.trim(),
           artist: artist.trim() || null,
           original_key: selectedKey,
-          content_raw: rawText,
-          content_parsed: content,
+          raw_content: rawText,
+          sections: contentToSave.sections,
         })
         navigate(`/songs/${id}`)
       } else {
@@ -261,8 +262,8 @@ export default function SongEditor() {
           title: title.trim(),
           artist: artist.trim() || null,
           original_key: selectedKey,
-          content_raw: rawText,
-          content_parsed: content,
+          raw_content: rawText,
+          sections: contentToSave.sections,
         })
         navigate(`/songs/${newSong.id}`)
       }

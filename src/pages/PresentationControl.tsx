@@ -7,6 +7,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { useVideoBackgrounds } from '../hooks/useVideoBackgrounds'
+import { parseChordLyrics } from '../utils/chordParser'
 import { usePresentationStore } from '../store/presentationStore'
 import {
   createControlChannel,
@@ -43,7 +44,9 @@ export default function PresentationControl() {
 
   // Build all lyric blocks for current song
   const currentSong = songs[store.currentSongIndex]
-  const currentSections = currentSong?.song?.content_parsed?.sections ?? []
+  const currentSections = currentSong?.song?.raw_content
+    ? (currentSong.song.sections ?? parseChordLyrics(currentSong.song.raw_content).sections)
+    : []
 
   const allBlocks: { sectionType: string; lines: string[] }[] = []
   for (const section of currentSections) {
@@ -84,8 +87,10 @@ export default function PresentationControl() {
       // Send first block
       const song = songs[index]
       if (song?.song) {
-        const sections = song.song.content_parsed?.sections ?? []
-        const t = song.transpose_semitones ?? 0
+        const sections = song.song?.raw_content
+          ? (song.song.sections ?? parseChordLyrics(song.song.raw_content).sections)
+          : []
+        const t = song.transpose ?? 0
         const blocks = sections.flatMap((s) => sectionToBlocks(s, t))
         if (blocks.length > 0) {
           send({ type: 'SHOW_LYRICS', lyrics: blocks[0].join('\n'), background: store.videoBackground?.url })

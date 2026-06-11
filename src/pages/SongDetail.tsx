@@ -6,6 +6,7 @@ import { useSong } from '../hooks/useSongs'
 import { useSongs } from '../hooks/useSongs'
 import { ChordDisplay } from '../components/ChordDisplay'
 import { TransposeControls } from '../components/TransposeControls'
+import { parseChordLyrics } from '../utils/chordParser'
 import type { Song } from '../types/database'
 
 interface SongDetailProps {
@@ -166,7 +167,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
       {/* Chord chart */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
         <ChordDisplay
-          sections={song.content_parsed.sections}
+          sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
           transpose={transpose}
           useFlats={useFlats}
         />

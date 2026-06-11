@@ -1,47 +1,26 @@
-/** Hooks for fetching and managing playlists and their songs using localStorage */
+/** Hooks for fetching and managing playlists and their songs using Supabase */
 
 import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import type { Playlist, PlaylistInsert, PlaylistSong, Song } from '../types/database'
-import { STORAGE_KEYS } from '../utils/seedData'
-
-const PLAYLISTS_KEY = STORAGE_KEYS.playlists
-const PLAYLIST_SONGS_KEY = STORAGE_KEYS.playlistSongs
-const SONGS_KEY = STORAGE_KEYS.songs
-
-function getAllPlaylists(): Playlist[] {
-  const data = localStorage.getItem(PLAYLISTS_KEY)
-  return data ? JSON.parse(data) : []
-}
-
-function saveAllPlaylists(playlists: Playlist[]) {
-  localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists))
-}
-
-function getAllPlaylistSongs(): PlaylistSong[] {
-  const data = localStorage.getItem(PLAYLIST_SONGS_KEY)
-  return data ? JSON.parse(data) : []
-}
-
-function saveAllPlaylistSongs(playlistSongs: PlaylistSong[]) {
-  localStorage.setItem(PLAYLIST_SONGS_KEY, JSON.stringify(playlistSongs))
-}
-
-function getAllSongs(): Song[] {
-  const data = localStorage.getItem(SONGS_KEY)
-  return data ? JSON.parse(data) : []
-}
 
 export function usePlaylists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchPlaylists = useCallback(() => {
+  const fetchPlaylists = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const all = getAllPlaylists()
-      setPlaylists(all)
+
+      const { data, error: sbError } = await supabase
+        .from('playlists')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (sbError) throw sbError
+      setPlaylists(data as Playlist[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch playlists')
     } finally {
@@ -54,59 +33,45 @@ export function usePlaylists() {
   }, [fetchPlaylists])
 
   const createPlaylist = useCallback(async (name: string, description?: string): Promise<Playlist> => {
-    const newPlaylist: Playlist = {
-      id: crypto.randomUUID(),
-      name,
-      description: description ?? null,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
+    const { data, error: sbError } = await supabase
+      .from('playlists')
+      .insert({
+        name,
+        date: new Date().toISOString().split('T')[0],
+        notes: description ?? null,
+        user_id: 'default',
+      })
+      .select()
+      .single()
 
-    const all = getAllPlaylists()
-    all.unshift(newPlaylist)
-    saveAllPlaylists(all)
+    if (sbError) throw sbError
 
+    const newPlaylist = data as Playlist
     setPlaylists((prev) => [newPlaylist, ...prev])
     return newPlaylist
   }, [])
 
   const updatePlaylist = useCallback(async (id: string, updates: Partial<PlaylistInsert>): Promise<void> => {
-    const all = getAllPlaylists()
-    const index = all.findIndex(p => p.id === id)
+    const { error: sbError } = await supabase
+      .from('playlists')
+      .update(updates)
+      .eq('id', id)
 
-    if (index === -1) {
-      throw new Error(`Playlist with id ${id} not found`)
-    }
+    if (sbError) throw sbError
 
-    all[index] = {
-      ...all[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    }
-
-    saveAllPlaylists(all)
     setPlaylists((prev) =>
-      prev.map((p) => (p.id === id ? all[index] : p))
+      prev.map((p) => (p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p))
     )
   }, [])
 
   const deletePlaylist = useCallback(async (id: string): Promise<void> => {
-    // Delete playlist
-    const allPlaylists = getAllPlaylists()
-    const filtered = allPlaylists.filter(p => p.id !== id)
+    // playlist_songs should cascade delete via FK
+    const { error: sbError } = await supabase
+      .from('playlists')
+      .delete()
+      .eq('id', id)
 
-    if (filtered.length === allPlaylists.length) {
-      throw new Error(`Playlist with id ${id} not found`)
-    }
-
-    saveAllPlaylists(filtered)
-
-    // Delete associated playlist_songs
-    const allPlaylistSongs = getAllPlaylistSongs()
-    const filteredSongs = allPlaylistSongs.filter(ps => ps.playlist_id !== id)
-    saveAllPlaylistSongs(filteredSongs)
-
+    if (sbError) throw sbError
     setPlaylists((prev) => prev.filter((p) => p.id !== id))
   }, [])
 
@@ -115,11 +80,11 @@ export function usePlaylists() {
 
 export function usePlaylist(playlistId: string | undefined) {
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
-  const [songs, setSongs] = useState<PlaylistSong[]>([])
+  const [songs, setSongs] = useState<(PlaylistSong & { song?: Song })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchPlaylist = useCallback(() => {
+  const fetchPlaylist = useCallback(async () => {
     if (!playlistId) {
       setPlaylist(null)
       setSongs([])
@@ -132,30 +97,24 @@ export function usePlaylist(playlistId: string | undefined) {
       setError(null)
 
       // Fetch playlist metadata
-      const allPlaylists = getAllPlaylists()
-      const found = allPlaylists.find(p => p.id === playlistId)
+      const { data: plData, error: plError } = await supabase
+        .from('playlists')
+        .select('*')
+        .eq('id', playlistId)
+        .single()
 
-      if (!found) {
-        setError('Playlist not found')
-        setLoading(false)
-        return
-      }
+      if (plError) throw plError
+      setPlaylist(plData as Playlist)
 
-      setPlaylist(found)
+      // Fetch playlist songs joined with song details
+      const { data: psData, error: psError } = await supabase
+        .from('playlist_songs')
+        .select('*, song:songs(*)')
+        .eq('playlist_id', playlistId)
+        .order('order', { ascending: true })
 
-      // Fetch playlist songs joined with song details, ordered by position
-      const allPlaylistSongs = getAllPlaylistSongs()
-      const allSongs = getAllSongs()
-
-      const playlistSongs = allPlaylistSongs
-        .filter(ps => ps.playlist_id === playlistId)
-        .sort((a, b) => a.position - b.position)
-        .map(ps => ({
-          ...ps,
-          song: allSongs.find(s => s.id === ps.song_id),
-        }))
-
-      setSongs(playlistSongs)
+      if (psError) throw psError
+      setSongs(psData as (PlaylistSong & { song?: Song })[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch playlist')
     } finally {
@@ -170,73 +129,64 @@ export function usePlaylist(playlistId: string | undefined) {
   const addSong = useCallback(async (songId: string): Promise<void> => {
     if (!playlistId) return
 
-    const allPlaylistSongs = getAllPlaylistSongs()
-
-    const nextPos = songs.length > 0
-      ? Math.max(...songs.map((s) => s.position)) + 1
+    const nextOrder = songs.length > 0
+      ? Math.max(...songs.map((s) => s.order)) + 1
       : 0
 
-    const newPlaylistSong: PlaylistSong = {
-      id: crypto.randomUUID(),
-      playlist_id: playlistId,
-      song_id: songId,
-      position: nextPos,
-      transpose_semitones: 0,
-    }
+    const { error: sbError } = await supabase
+      .from('playlist_songs')
+      .insert({
+        playlist_id: playlistId,
+        song_id: songId,
+        transpose: 0,
+        order: nextOrder,
+      })
 
-    allPlaylistSongs.push(newPlaylistSong)
-    saveAllPlaylistSongs(allPlaylistSongs)
-
+    if (sbError) throw sbError
     await fetchPlaylist()
   }, [playlistId, songs, fetchPlaylist])
 
   const removeSong = useCallback(async (playlistSongId: string): Promise<void> => {
-    if (!playlistId) return
+    const { error: sbError } = await supabase
+      .from('playlist_songs')
+      .delete()
+      .eq('id', playlistSongId)
 
-    const allPlaylistSongs = getAllPlaylistSongs()
-    const filtered = allPlaylistSongs.filter(ps => ps.id !== playlistSongId)
-
-    if (filtered.length === allPlaylistSongs.length) {
-      throw new Error(`Playlist song with id ${playlistSongId} not found`)
-    }
-
-    saveAllPlaylistSongs(filtered)
+    if (sbError) throw sbError
     await fetchPlaylist()
   }, [fetchPlaylist])
 
   const reorderSongs = useCallback(async (orderedIds: string[]): Promise<void> => {
     if (!playlistId) return
 
-    const allPlaylistSongs = getAllPlaylistSongs()
+    // Update order for each playlist song — use allSettled for partial failure tolerance
+    const updates = orderedIds.map((psId, index) =>
+      supabase
+        .from('playlist_songs')
+        .update({ order: index })
+        .eq('id', psId)
+    )
 
-    // Update positions for each playlist song
-    orderedIds.forEach((psId, index) => {
-      const psIndex = allPlaylistSongs.findIndex(ps => ps.id === psId)
-      if (psIndex !== -1) {
-        allPlaylistSongs[psIndex].position = index
-      }
-    })
-
-    saveAllPlaylistSongs(allPlaylistSongs)
+    const results = await Promise.allSettled(updates)
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+    if (failures.length > 0) {
+      console.error('Some reorder updates failed:', failures)
+      // Still refresh to get current DB state
+    }
     await fetchPlaylist()
-  }, [fetchPlaylist])
+  }, [fetchPlaylist, playlistId])
 
   const setTranspose = useCallback(async (playlistSongId: string, semitones: number): Promise<void> => {
-    if (!playlistId) return
+    const { error: sbError } = await supabase
+      .from('playlist_songs')
+      .update({ transpose: semitones })
+      .eq('id', playlistSongId)
 
-    const allPlaylistSongs = getAllPlaylistSongs()
-    const index = allPlaylistSongs.findIndex(ps => ps.id === playlistSongId)
-
-    if (index === -1) {
-      throw new Error(`Playlist song with id ${playlistSongId} not found`)
-    }
-
-    allPlaylistSongs[index].transpose_semitones = semitones
-    saveAllPlaylistSongs(allPlaylistSongs)
+    if (sbError) throw sbError
 
     setSongs((prev) =>
       prev.map((ps) =>
-        ps.id === playlistSongId ? { ...ps, transpose_semitones: semitones } : ps
+        ps.id === playlistSongId ? { ...ps, transpose: semitones } : ps
       )
     )
   }, [])

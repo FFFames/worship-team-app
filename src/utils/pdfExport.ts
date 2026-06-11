@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { PlaylistSong, Section } from '../types/database';
 import { transposeChordLine, transposeKey } from './transpose';
+import { parseChordLyrics } from './chordParser';
 
 const PAGE_W = 210; // A4 width mm
 const PAGE_H = 297; // A4 height mm
@@ -60,7 +61,7 @@ export async function exportPlaylistToPDF(
     const song = ps.song;
     if (!song) continue;
 
-    const render = await renderSong(song, ps.transpose_semitones ?? 0);
+    const render = await renderSong(song, ps.transpose ?? 0);
     songRenders.push(render);
   }
 
@@ -136,12 +137,14 @@ async function renderHeader(name: string, songCount: number): Promise<HeaderRend
 
 /** Render a single song into a canvas and return its data URL + height in mm */
 async function renderSong(
-  song: { title: string; artist: string | null; original_key: string; content_parsed?: { sections: Section[] } },
+  song: { title: string; artist: string | null; original_key: string; raw_content?: string },
   transpose: number,
 ): Promise<SongRender> {
   const transposedKey =
     transpose !== 0 ? transposeKey(song.original_key, transpose) : song.original_key;
-  const sections: Section[] = song.content_parsed?.sections ?? [];
+  const sections: Section[] = song.raw_content
+    ? parseChordLyrics(song.raw_content).sections
+    : [];
 
   const html = buildSongHTML(song.title, song.artist, transposedKey, song.original_key, transpose, sections);
 

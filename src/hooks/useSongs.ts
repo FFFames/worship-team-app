@@ -1,33 +1,8 @@
-/** Hooks for fetching and managing songs using localStorage */
+/** Hooks for fetching and managing songs using Supabase */
 
 import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import type { Song, SongInsert } from '../types/database'
-import { seedDataIfEmpty, STORAGE_KEYS } from '../utils/seedData'
-
-const STORAGE_KEY = STORAGE_KEYS.songs
-
-// Seed data on module load
-if (typeof window !== 'undefined') {
-  seedDataIfEmpty()
-}
-
-function getAllSongs(): Song[] {
-  const data = localStorage.getItem(STORAGE_KEY)
-  return data ? JSON.parse(data) : []
-}
-
-function saveAllSongs(songs: Song[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(songs))
-}
-
-function filterSongs(songs: Song[], query: string): Song[] {
-  if (!query.trim()) return songs
-  const lowerQuery = query.toLowerCase()
-  return songs.filter(s =>
-    s.title.toLowerCase().includes(lowerQuery) ||
-    (s.artist && s.artist.toLowerCase().includes(lowerQuery))
-  )
-}
 
 export function useSongs() {
   const [songs, setSongs] = useState<Song[]>([])
@@ -35,13 +10,25 @@ export function useSongs() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  const fetchSongs = useCallback((query: string) => {
+  const fetchSongs = useCallback(async (query: string) => {
     try {
       setLoading(true)
       setError(null)
-      const allSongs = getAllSongs()
-      const filtered = filterSongs(allSongs, query)
-      setSongs(filtered)
+
+      let q = supabase
+        .from('songs')
+        .select('*')
+        .order('updated_at', { ascending: false })
+
+      if (query.trim()) {
+        // Use ilike for search on title and artist
+        q = q.or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
+      }
+
+      const { data, error: sbError } = await q
+
+      if (sbError) throw sbError
+      setSongs(data as Song[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch songs')
     } finally {
@@ -58,55 +45,62 @@ export function useSongs() {
   }, [])
 
   const addSong = useCallback(async (song: SongInsert): Promise<Song> => {
-    const newSong: Song = {
-      id: crypto.randomUUID(),
-      title: song.title,
-      artist: song.artist ?? null,
-      original_key: song.original_key,
-      content_raw: song.content_raw,
-      content_parsed: song.content_parsed,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
+    const { data, error: sbError } = await supabase
+      .from('songs')
+      .insert({
+        title: song.title,
+        artist: song.artist ?? null,
+        original_key: song.original_key,
+        tempo: song.tempo ?? 120,
+        time_signature: song.time_signature ?? '4/4',
+        raw_content: song.raw_content,
+        sections: song.sections ?? null,
+        tags: song.tags ?? [],
+        favorite: song.favorite ?? false,
+        user_id: 'default',
+      })
+      .select()
+      .single()
 
-    const allSongs = getAllSongs()
-    allSongs.unshift(newSong)
-    saveAllSongs(allSongs)
+    if (sbError) throw sbError
 
+    const newSong = data as Song
     setSongs((prev) => [newSong, ...prev])
     return newSong
   }, [])
 
   const updateSong = useCallback(async (id: string, updates: Partial<SongInsert>): Promise<void> => {
-    const allSongs = getAllSongs()
-    const index = allSongs.findIndex(s => s.id === id)
-
-    if (index === -1) {
-      throw new Error(`Song with id ${id} not found`)
+    // Whitelist only fields that exist in the songs table
+    const allowedFields: (keyof SongInsert)[] = [
+      'title', 'artist', 'original_key', 'tempo', 'time_signature',
+      'raw_content', 'sections', 'tags', 'favorite',
+    ]
+    const safeUpdates: Record<string, unknown> = {}
+    for (const key of allowedFields) {
+      if (key in updates) {
+        safeUpdates[key] = updates[key]
+      }
     }
 
-    allSongs[index] = {
-      ...allSongs[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    }
+    const { error: sbError } = await supabase
+      .from('songs')
+      .update(safeUpdates)
+      .eq('id', id)
 
-    saveAllSongs(allSongs)
+    if (sbError) throw sbError
+
     setSongs((prev) =>
-      prev.map((s) => (s.id === id ? allSongs[index] : s))
+      prev.map((s) => (s.id === id ? { ...s, ...safeUpdates, updated_at: new Date().toISOString() } : s))
     )
   }, [])
 
   const deleteSong = useCallback(async (id: string): Promise<void> => {
-    const allSongs = getAllSongs()
-    const filtered = allSongs.filter(s => s.id !== id)
+    const { error: sbError } = await supabase
+      .from('songs')
+      .delete()
+      .eq('id', id)
 
-    if (filtered.length === allSongs.length) {
-      throw new Error(`Song with id ${id} not found`)
-    }
-
-    saveAllSongs(filtered)
+    if (sbError) throw sbError
     setSongs((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
@@ -133,56 +127,50 @@ export function useSong(id: string | undefined) {
       return
     }
 
-    try {
-      setLoading(true)
-      setError(null)
+    const fetchSong = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-      const allSongs = getAllSongs()
-      const found = allSongs.find(s => s.id === id)
+        const { data, error: sbError } = await supabase
+          .from('songs')
+          .select('*')
+          .eq('id', id)
+          .single()
 
-      if (found) {
-        setSong(found)
-      } else {
-        setError('Song not found')
+        if (sbError) throw sbError
+        setSong(data as Song)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch song')
+      } finally {
+        setLoading(false)
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch song')
-    } finally {
-      setLoading(false)
     }
+
+    fetchSong()
   }, [id])
 
   const updateSong = useCallback(async (updates: Partial<SongInsert>): Promise<void> => {
     if (!id) return
 
-    const allSongs = getAllSongs()
-    const index = allSongs.findIndex(s => s.id === id)
+    const { error: sbError } = await supabase
+      .from('songs')
+      .update(updates)
+      .eq('id', id)
 
-    if (index === -1) {
-      throw new Error(`Song with id ${id} not found`)
-    }
-
-    allSongs[index] = {
-      ...allSongs[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    }
-
-    saveAllSongs(allSongs)
-    setSong((prev) => (prev ? { ...prev, ...updates, updated_at: allSongs[index].updated_at } : prev))
+    if (sbError) throw sbError
+    setSong((prev) => (prev ? { ...prev, ...updates, updated_at: new Date().toISOString() } : prev))
   }, [id])
 
   const deleteSong = useCallback(async (): Promise<void> => {
     if (!id) return
 
-    const allSongs = getAllSongs()
-    const filtered = allSongs.filter(s => s.id !== id)
+    const { error: sbError } = await supabase
+      .from('songs')
+      .delete()
+      .eq('id', id)
 
-    if (filtered.length === allSongs.length) {
-      throw new Error(`Song with id ${id} not found`)
-    }
-
-    saveAllSongs(filtered)
+    if (sbError) throw sbError
     setSong(null)
   }, [id])
 

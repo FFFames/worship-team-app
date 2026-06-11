@@ -1,6 +1,6 @@
-/** TypeScript types matching the Supabase database schema */
+/** TypeScript types matching the actual Supabase database schema */
 
-/** A single chord+lyric line pair */
+/** A single chord+lyric line pair (used by ChordDisplay) */
 export type SongLine = {
   chords: string;
   lyrics: string;
@@ -17,63 +17,74 @@ export type SectionType =
   | 'interlude'
   | 'tag';
 
-/** A song section (verse, chorus, bridge, etc.) */
+/** A song section (verse, chorus, bridge, etc.) used by ChordDisplay */
 export type Section = {
   type: SectionType;
   marker: string;
   lines: SongLine[];
 };
 
-/** The full parsed song content stored in content_parsed JSONB */
+/** The full parsed song content from parseChordLyrics() */
 export type SongContent = {
   sections: Section[];
 };
 
-/** songs table row */
+/** songs table row — matches actual Supabase schema */
 export type Song = {
   id: string;
   title: string;
   artist: string | null;
   original_key: string;
-  content_raw: string;
-  content_parsed: SongContent;
-  created_by: string | null;
+  tempo: number | null;
+  time_signature: string | null;
+  raw_content: string;
+  sections: Section[] | null;
+  user_id: string | null;
+  tags: string[] | null;
+  favorite: boolean | null;
   created_at: string;
   updated_at: string;
 };
 
 /** Input type for creating/updating a song */
 export type SongInsert = {
-  title: string;
+  title?: string;
   artist?: string | null;
-  original_key: string;
-  content_raw: string;
-  content_parsed: SongContent;
+  original_key?: string;
+  tempo?: number | null;
+  time_signature?: string | null;
+  raw_content?: string;
+  sections?: Section[] | null;
+  tags?: string[] | null;
+  favorite?: boolean | null;
 };
 
-/** playlists table row */
+/** playlists table row — matches actual Supabase schema */
 export type Playlist = {
   id: string;
   name: string;
-  description: string | null;
-  created_by: string | null;
+  date: string | null;
+  notes: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
 /** Input type for creating a playlist */
 export type PlaylistInsert = {
-  name: string;
-  description?: string | null;
+  name?: string;
+  date?: string | null;
+  notes?: string | null;
 };
 
-/** playlist_songs table row (with optional joined song) */
+/** playlist_songs table row — matches actual Supabase schema (with optional joined song) */
 export type PlaylistSong = {
   id: string;
   playlist_id: string;
   song_id: string;
-  position: number;
-  transpose_semitones: number;
+  transpose: number;
+  order: number;
+  created_at: string;
   song?: Song;
 };
 

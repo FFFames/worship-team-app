@@ -1,12 +1,12 @@
-/** Supabase client no-op — localStorage is used instead of Supabase */
+/** Supabase client — connects to the WorshipTeam PostgreSQL backend */
 
-/**
- * This file is kept for compatibility but does nothing.
- * The app now uses localStorage for all data persistence via hooks in src/hooks/
- *
- * - useSongs: stores songs in 'worshipteam_songs'
- * - usePlaylists: stores playlists in 'worshipteam_playlists'
- * - useVideoBackgrounds: stores backgrounds in 'worshipteam_backgrounds'
- */
+import { createClient } from '@supabase/supabase-js'
 
-export const supabase = null as any
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase credentials not found. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local')
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

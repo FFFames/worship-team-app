@@ -54,7 +54,7 @@ export default function PlaylistDetail() {
     reordered.splice(dropIndex, 0, moved)
     setDragIndex(null)
     // Update positions via hook
-    const orderedIds = reordered.map((ps) => ps.song_id)
+    const orderedIds = reordered.map((ps) => ps.id)
     await reorderSongs(orderedIds)
   }, [dragIndex, songs, reorderSongs])
 
@@ -126,8 +126,8 @@ export default function PlaylistDetail() {
                 {playlist.name}
               </h2>
             )}
-            {playlist.description && (
-              <p className="text-sm text-[#b4b4b4] mt-0.5">{playlist.description}</p>
+            {playlist.notes && (
+              <p className="text-sm text-[#b4b4b4] mt-0.5">{playlist.notes}</p>
             )}
           </div>
 
@@ -219,7 +219,7 @@ export default function PlaylistDetail() {
                   {/* Per-song transpose controls */}
                   <div className="flex items-center gap-1">
                     {TRANSPOSE_OFFSETS.map((offset) => {
-                      const newTranspose = ps.transpose_semitones + offset
+                      const newTranspose = ps.transpose + offset
                       const isCurrent = offset === 0
                       const targetKey = transposeKey(song.original_key, newTranspose)
 

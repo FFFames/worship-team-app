@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePlaylist } from '../hooks/usePlaylists';
 import { ChordDisplay } from '../components/ChordDisplay';
+import { parseChordLyrics } from '../utils/chordParser';
 import { transposeKey } from '../utils/transpose';
 
 export default function StageView() {
@@ -133,7 +134,7 @@ export default function StageView() {
           const song = ps.song;
           if (!song) return null;
 
-          const transpose = ps.transpose_semitones ?? 0;
+          const transpose = ps.transpose ?? 0;
           const transposedKey =
             transpose !== 0
               ? transposeKey(song.original_key, transpose)
@@ -179,7 +180,7 @@ export default function StageView() {
 
               {/* Chord display — larger fonts for stage readability */}
               <ChordDisplay
-                sections={song.content_parsed?.sections ?? []}
+                sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
                 transpose={transpose}
                 className="pl-6"
               />
