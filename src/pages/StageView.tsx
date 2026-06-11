@@ -128,7 +128,7 @@ export default function StageView() {
       </nav>
 
       {/* ---- Song content ---- */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main className="max-w-5xl mx-auto px-2 md:px-4 py-6">
         {songs.length === 0 && (
           <p className="text-center text-[#898989] text-lg py-20">
             No songs in this playlist.
@@ -165,7 +165,7 @@ export default function StageView() {
                 <div className="flex items-center gap-1 ml-auto">
                   <button
                     onClick={() => handleTranspose(ps.id, transpose, -1)}
-                    className="w-7 h-7 flex items-center justify-center rounded bg-[#242424] text-[#b4b4b4] hover:bg-[#2e2e2e] hover:text-[#fafafa] text-sm transition"
+                    className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded bg-[#242424] text-[#b4b4b4] hover:bg-[#2e2e2e] hover:text-[#fafafa] text-sm transition"
                     title="Transpose down 1 semitone"
                   >
                     −
@@ -175,7 +175,7 @@ export default function StageView() {
                   </span>
                   <button
                     onClick={() => handleTranspose(ps.id, transpose, 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded bg-[#242424] text-[#b4b4b4] hover:bg-[#2e2e2e] hover:text-[#fafafa] text-sm transition"
+                    className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded bg-[#242424] text-[#b4b4b4] hover:bg-[#2e2e2e] hover:text-[#fafafa] text-sm transition"
                     title="Transpose up 1 semitone"
                   >
                     +
@@ -187,7 +187,7 @@ export default function StageView() {
               <ChordDisplay
                 sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
                 transpose={transpose}
-                className="pl-6"
+                className="pl-2 md:pl-6"
               />
 
               {/* Divider */}

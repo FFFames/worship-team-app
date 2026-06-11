@@ -39,9 +39,20 @@ export default function SongLibrary() {
     navigate('/songs/new')
   }
 
+  // Filter songs by search query for the mobile list view
+  const filteredSongs = useMemo(() => {
+    if (!searchQuery) return songs
+    const q = searchQuery.toLowerCase()
+    return songs.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.artist && s.artist.toLowerCase().includes(q))
+    )
+  }, [songs, searchQuery])
+
   return (
-    <div className="h-full flex">
-      {/* Left panel — Sidebar component */}
+    <div className="h-full flex flex-col md:flex-row">
+      {/* ── Desktop: Sidebar component (md+) ── */}
       <Sidebar
         title={`${songs.length} Song${songs.length !== 1 ? 's' : ''}`}
         items={sidebarItems}
@@ -53,8 +64,95 @@ export default function SongLibrary() {
         onFilterChange={setSearchQuery}
       />
 
-      {/* Right panel — song detail or empty state */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0f0f0f]">
+      {/* ── Mobile: Full-width song list (< md) — only when no song selected ── */}
+      {!selectedSong && (
+        <div className="flex-1 flex flex-col min-w-0 bg-[#0f0f0f] md:hidden">
+          {/* Mobile header with search */}
+          <div className="px-4 py-3 border-b border-[#2e2e2e] flex items-center justify-between">
+            <span className="text-[13px] font-medium text-[#898989] uppercase tracking-wider">
+              {loading ? 'Loading...' : `${songs.length} Song${songs.length !== 1 ? 's' : ''}`}
+            </span>
+            <button
+              onClick={handleAdd}
+              className="w-7 h-7 rounded-md border border-[#2e2e2e] text-[#b4b4b4] text-sm flex items-center justify-center hover:bg-[#242424] transition-colors"
+              title="New Song"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Mobile search */}
+          <div className="px-4 py-2 border-b border-[#1e1e1e]">
+            <input
+              type="text"
+              placeholder="Search songs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-[#2e2e2e] rounded-md px-2.5 py-1.5 text-[13px] text-[#fafafa] outline-none placeholder:text-[#898989] focus:border-[#3ecf8e] transition-colors"
+            />
+          </div>
+
+          {/* Mobile song list */}
+          <div className="flex-1 overflow-y-auto">
+            {loading && (
+              <div className="flex-1 flex items-center justify-center py-16">
+                <div className="text-[#898989] text-sm">Loading songs...</div>
+              </div>
+            )}
+            {error && (
+              <div className="flex-1 flex items-center justify-center py-16">
+                <div className="text-red-400 text-sm">{error}</div>
+              </div>
+            )}
+            {!loading && !error && filteredSongs.length === 0 && (
+              <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                  <div className="text-4xl mb-3">🎵</div>
+                  <p className="text-[#898989] text-sm">No songs found</p>
+                </div>
+              </div>
+            )}
+            {!loading &&
+              !error &&
+              filteredSongs.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelect(s.id)}
+                  className="w-full text-left px-4 py-3 border-b border-[#1e1e1e] cursor-pointer transition-colors hover:bg-[#1a1a1a]"
+                >
+                  <div className="text-sm font-medium text-[#fafafa] truncate">
+                    {s.title}
+                  </div>
+                  <div className="text-xs text-[#898989] mt-0.5 flex items-center gap-2">
+                    {s.original_key && (
+                      <span className="font-mono text-[11px] bg-[rgba(62,207,142,0.15)] text-[#3ecf8e] px-1.5 py-px rounded">
+                        {s.original_key}
+                      </span>
+                    )}
+                    <span className="truncate">{s.artist || 'Unknown artist'}</span>
+                  </div>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile: Full-width SongDetail with back button (< md) ── */}
+      {selectedSong && (
+        <div className="flex-1 flex flex-col min-w-0 bg-[#0f0f0f] md:hidden">
+          {/* Mobile back button */}
+          <button
+            onClick={() => setSelectedId(null)}
+            className="px-4 py-2 border-b border-[#2e2e2e] text-xs text-[#898989] hover:text-[#3ecf8e] transition-colors text-left"
+          >
+            ← Back to Songs
+          </button>
+          <SongDetail song={selectedSong} />
+        </div>
+      )}
+
+      {/* ── Desktop: Right panel — song detail or empty state (md+) ── */}
+      <div className="hidden md:flex flex-1 flex-col min-w-0 bg-[#0f0f0f]">
         {loading && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-[#898989] text-sm">Loading songs...</div>

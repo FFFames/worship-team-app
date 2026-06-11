@@ -87,7 +87,7 @@ export default function PlaylistDetail() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#2e2e2e]">
+      <div className="px-4 md:px-6 py-4 border-b border-[#2e2e2e]">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             {/* Editable name */}
@@ -132,7 +132,7 @@ export default function PlaylistDetail() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2 ml-4">
+          <div className="flex gap-2 ml-4 flex-wrap">
             <button
               onClick={() => navigate(`/playlists/${playlistId}/stage`)}
               className="px-3 py-1.5 rounded-md border border-[#2e2e2e] text-xs text-[#b4b4b4] hover:text-[#fafafa] hover:border-[#363636] transition-colors"
@@ -156,7 +156,7 @@ export default function PlaylistDetail() {
       </div>
 
       {/* Song list header */}
-      <div className="px-6 py-3 border-b border-[#2e2e2e] flex items-center justify-between bg-[#141414]">
+      <div className="px-4 md:px-6 py-3 border-b border-[#2e2e2e] flex items-center justify-between bg-[#141414]">
         <span className="text-xs font-medium text-[#898989] uppercase tracking-wider">
           {songs.length} Song{songs.length !== 1 ? 's' : ''}
         </span>
@@ -196,28 +196,101 @@ export default function PlaylistDetail() {
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={handleDragOver}
                   onDrop={() => handleDrop(index)}
-                  className={`flex items-center gap-3 px-6 py-3 border-b border-[#1e1e1e] transition-colors group ${
+                  className={`px-4 md:px-6 py-3 border-b border-[#1e1e1e] transition-colors group ${
                     dragIndex === index ? 'opacity-50' : 'hover:bg-[#1a1a1a]'
                   }`}
                 >
-                  {/* Drag handle + position */}
-                  <div className="flex items-center gap-2 w-8 shrink-0">
-                    <span className="text-[#898989] text-xs cursor-grab active:cursor-grabbing select-none">⠿</span>
-                    <span className="text-xs text-[#898989] font-mono">{index + 1}</span>
+                  {/* Top row: drag handle + position + song info + mobile reorder + remove */}
+                  <div className="flex items-center gap-3">
+                    {/* Drag handle + position */}
+                    <div className="hidden md:flex items-center gap-2 w-8 shrink-0">
+                      <span className="text-[#898989] text-xs cursor-grab active:cursor-grabbing select-none">⠿</span>
+                      <span className="text-xs text-[#898989] font-mono">{index + 1}</span>
+                    </div>
+
+                    {/* Position number on mobile */}
+                    <span className="md:hidden text-xs text-[#898989] font-mono w-5 shrink-0">{index + 1}</span>
+
+                    {/* Song info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-[#fafafa] truncate">
+                        {song.title}
+                      </div>
+                      <div className="text-xs text-[#898989] truncate">
+                        {song.artist || 'Unknown Artist'}
+                      </div>
+                    </div>
+
+                    {/* Desktop: inline transpose controls */}
+                    <div className="hidden md:flex items-center gap-1">
+                      {TRANSPOSE_OFFSETS.map((offset) => {
+                        const newTranspose = ps.transpose + offset
+                        const isCurrent = offset === 0
+                        const targetKey = transposeKey(song.original_key, newTranspose)
+
+                        return (
+                          <button
+                            key={offset}
+                            onClick={() => setTranspose(ps.id, newTranspose)}
+                            className={`w-7 h-7 rounded-md text-xs font-mono font-medium flex items-center justify-center transition-colors ${
+                              isCurrent
+                                ? 'border border-[rgba(62,207,142,0.3)] bg-[rgba(62,207,142,0.15)] text-[#3ecf8e]'
+                                : 'border border-[#2e2e2e] bg-[#242424] text-[#b4b4b4] hover:bg-[#2e2e2e] hover:text-[#fafafa]'
+                            }`}
+                            title={isCurrent ? `Key: ${targetKey}` : `Transpose to ${targetKey}`}
+                          >
+                            {isCurrent ? targetKey : (offset > 0 ? `+${offset}` : `${offset}`)}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Mobile: up/down reorder buttons */}
+                    <div className="flex md:hidden items-center gap-1 shrink-0">
+                      <button
+                        onClick={async () => {
+                          if (index === 0) return
+                          const reordered = [...songs]
+                          const [moved] = reordered.splice(index, 1)
+                          reordered.splice(index - 1, 0, moved)
+                          const orderedIds = reordered.map((p) => p.id)
+                          await reorderSongs(orderedIds)
+                        }}
+                        disabled={index === 0}
+                        className="w-7 h-7 rounded-md border border-[#2e2e2e] bg-[#242424] text-[#b4b4b4] text-xs flex items-center justify-center hover:bg-[#2e2e2e] disabled:opacity-30 transition-colors"
+                        title="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (index === songs.length - 1) return
+                          const reordered = [...songs]
+                          const [moved] = reordered.splice(index, 1)
+                          reordered.splice(index + 1, 0, moved)
+                          const orderedIds = reordered.map((p) => p.id)
+                          await reorderSongs(orderedIds)
+                        }}
+                        disabled={index === songs.length - 1}
+                        className="w-7 h-7 rounded-md border border-[#2e2e2e] bg-[#242424] text-[#b4b4b4] text-xs flex items-center justify-center hover:bg-[#2e2e2e] disabled:opacity-30 transition-colors"
+                        title="Move down"
+                      >
+                        ↓
+                      </button>
+                    </div>
+
+                    {/* Remove button — always visible on mobile, hover-only on desktop */}
+                    <button
+                      onClick={() => removeSong(ps.id)}
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 w-7 h-7 rounded-md flex items-center justify-center text-[#898989] hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
+                      title="Remove from playlist"
+                    >
+                      ✕
+                    </button>
                   </div>
 
-                  {/* Song info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[#fafafa] truncate">
-                      {song.title}
-                    </div>
-                    <div className="text-xs text-[#898989] truncate">
-                      {song.artist || 'Unknown Artist'}
-                    </div>
-                  </div>
-
-                  {/* Per-song transpose controls */}
-                  <div className="flex items-center gap-1">
+                  {/* Mobile: transpose controls stacked below song info */}
+                  <div className="flex md:hidden items-center gap-1 mt-2 ml-8">
                     {TRANSPOSE_OFFSETS.map((offset) => {
                       const newTranspose = ps.transpose + offset
                       const isCurrent = offset === 0
@@ -239,15 +312,6 @@ export default function PlaylistDetail() {
                       )
                     })}
                   </div>
-
-                  {/* Remove button */}
-                  <button
-                    onClick={() => removeSong(ps.id)}
-                    className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-md flex items-center justify-center text-[#898989] hover:text-red-400 hover:bg-red-400/10 transition-all"
-                    title="Remove from playlist"
-                  >
-                    ✕
-                  </button>
                 </div>
               )
             })}

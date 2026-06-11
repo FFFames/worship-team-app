@@ -22,7 +22,7 @@ export function TransposeControls({
   const offsets = [-5, -2, -1, 0, 1, 2, 5];
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-[#2e2e2e] bg-[#171717] p-2.5">
+    <div className="flex flex-wrap items-center gap-1 md:gap-2 rounded-lg border border-[#2e2e2e] bg-[#171717] p-2.5">
       {offsets.map((offset) => {
         const isCenter = offset === 0;
 

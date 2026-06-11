@@ -3,7 +3,7 @@
  *  Right panel: lyrics block preview + control buttons (welcome, black, video bg).
  *  Communicates with PresenterScreen via BroadcastChannel. */
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { useVideoBackgrounds } from '../hooks/useVideoBackgrounds'
@@ -41,6 +41,7 @@ export default function PresentationControl() {
   const { backgrounds } = useVideoBackgrounds()
   const store = usePresentationStore()
   const channelRef = useRef<ReturnType<typeof createControlChannel> | null>(null)
+  const [mobileTab, setMobileTab] = useState<'songs' | 'lyrics' | 'controls'>('songs')
 
   // Build all lyric blocks for current song
   const currentSong = songs[store.currentSongIndex]
@@ -157,138 +158,157 @@ export default function PresentationControl() {
   }
 
   return (
-    <div className="flex-1 flex min-h-0">
-      {/* Left panel — song list */}
-      <div className="w-64 shrink-0 border-r border-[#2e2e2e] bg-[#141414] flex flex-col">
-        <div className="px-4 py-3 border-b border-[#2e2e2e]">
-          <h3 className="text-xs font-medium text-[#898989] uppercase tracking-wider">Songs</h3>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {songs.map((ps, idx) => {
-            const song = ps.song
-            if (!song) return null
-            return (
-              <button
-                key={ps.id}
-                onClick={() => selectSong(idx)}
-                className={`w-full text-left px-4 py-3 border-b border-[#1e1e1e] text-sm transition-colors ${
-                  idx === store.currentSongIndex
-                    ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
-                    : 'border-l-2 border-l-transparent hover:bg-[#1a1a1a]'
-                }`}
-              >
-                <div className="text-[#fafafa] font-medium truncate">{song.title}</div>
-                <div className="text-xs text-[#898989] mt-0.5">{song.artist ?? 'Unknown'}</div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Center panel — lyrics blocks */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="px-6 py-3 border-b border-[#2e2e2e] flex items-center justify-between">
-          <span className="text-sm font-medium text-[#fafafa] truncate">
-            {currentSong?.song?.title ?? 'Select a song'}
-          </span>
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Mobile tab bar */}
+      <div className="md:hidden flex border-b border-[#2e2e2e] bg-[#141414]">
+        {(['songs', 'lyrics', 'controls'] as const).map((tab) => (
           <button
-            onClick={openPresenter}
-            className="px-3 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-xs font-medium hover:bg-[#2db87a] transition-colors"
+            key={tab}
+            onClick={() => setMobileTab(tab)}
+            className={`flex-1 px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors ${
+              mobileTab === tab
+                ? 'text-[#3ecf8e] border-b-2 border-[#3ecf8e]'
+                : 'text-[#898989] hover:text-[#fafafa]'
+            }`}
           >
-            Open Presenter
+            {tab === 'songs' ? 'Songs' : tab === 'lyrics' ? 'Lyrics' : 'Controls'}
           </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 gap-4">
-            {allBlocks.map((block, idx) => (
-              <button
-                key={idx}
-                onClick={() => selectBlock(idx)}
-                className={`text-left p-4 rounded-lg border transition-colors ${
-                  idx === store.currentBlockIndex
-                    ? 'border-[#3ecf8e] bg-[rgba(62,207,142,0.08)]'
-                    : 'border-[#2e2e2e] hover:border-[#363636]'
-                }`}
-              >
-                <div className="text-xs text-[#898989] mb-2 uppercase">{block.sectionType}</div>
-                {block.lines.map((line, li) => (
-                  <div key={li} className="text-sm text-[#fafafa] leading-relaxed">
-                    {line}
-                  </div>
-                ))}
-              </button>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Right panel — preview + controls */}
-      <div className="w-80 shrink-0 border-l border-[#2e2e2e] bg-[#141414] flex flex-col">
-        {/* Preview of what's on screen */}
-        <div className="flex-1 p-4">
-          <div className="text-xs text-[#898989] uppercase mb-3">Display Preview</div>
-          <div className="aspect-video bg-black rounded-lg flex items-center justify-center overflow-hidden">
-            {store.isBlacked ? (
-              <div className="w-full h-full bg-black" />
-            ) : store.isShowingWelcome ? (
-              <div className="text-center">
-                <div className="text-2xl text-[#fafafa]">♫</div>
-                <div className="text-sm text-[#b4b4b4] mt-2">Welcome</div>
-              </div>
-            ) : allBlocks[store.currentBlockIndex] ? (
-              <div className="text-center px-4">
-                {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
-                  <div key={i} className="text-white text-sm leading-relaxed">
-                    {line}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-[#898989]">No content</div>
-            )}
+      <div className="flex-1 flex min-h-0">
+        {/* Left panel — song list */}
+        <div className={`w-full flex flex-col border-r border-[#2e2e2e] bg-[#141414] ${mobileTab === 'songs' ? '' : 'hidden'} md:flex md:w-64 md:shrink-0`}>
+          <div className="px-4 py-3 border-b border-[#2e2e2e]">
+            <h3 className="text-xs font-medium text-[#898989] uppercase tracking-wider">Songs</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {songs.map((ps, idx) => {
+              const song = ps.song
+              if (!song) return null
+              return (
+                <button
+                  key={ps.id}
+                  onClick={() => { selectSong(idx); setMobileTab('lyrics') }}
+                  className={`w-full text-left px-4 py-3 border-b border-[#1e1e1e] text-sm transition-colors ${
+                    idx === store.currentSongIndex
+                      ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
+                      : 'border-l-2 border-l-transparent hover:bg-[#1a1a1a]'
+                  }`}
+                >
+                  <div className="text-[#fafafa] font-medium truncate">{song.title}</div>
+                  <div className="text-xs text-[#898989] mt-0.5">{song.artist ?? 'Unknown'}</div>
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Control buttons */}
-        <div className="p-4 border-t border-[#2e2e2e] space-y-3">
-          <div className="flex gap-2">
+        {/* Center panel — lyrics blocks */}
+        <div className={`w-full flex flex-col min-w-0 ${mobileTab === 'lyrics' ? '' : 'hidden'} md:flex md:flex-1`}>
+          <div className="px-6 py-3 border-b border-[#2e2e2e] flex items-center justify-between">
+            <span className="text-sm font-medium text-[#fafafa] truncate">
+              {currentSong?.song?.title ?? 'Select a song'}
+            </span>
             <button
-              onClick={showWelcome}
-              className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
-                store.isShowingWelcome
-                  ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
-                  : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
-              }`}
+              onClick={openPresenter}
+              className="px-3 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-xs font-medium hover:bg-[#2db87a] transition-colors"
             >
-              Welcome
-            </button>
-            <button
-              onClick={showBlack}
-              className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
-                store.isBlacked
-                  ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
-                  : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
-              }`}
-            >
-              Black
+              Open Presenter
             </button>
           </div>
-
-          {/* Video background dropdown */}
-          <div>
-            <label className="block text-xs text-[#898989] mb-1">Video Background</label>
-            <select
-              value={store.videoBackground?.url ?? ''}
-              onChange={(e) => changeBackground(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-xs text-[#fafafa] focus:outline-none focus:border-[#3ecf8e]"
-            >
-              <option value="">None</option>
-              {backgrounds.map((bg) => (
-                <option key={bg.id} value={bg.url}>
-                  {bg.name}
-                </option>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 gap-4">
+              {allBlocks.map((block, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => selectBlock(idx)}
+                  className={`text-left p-4 rounded-lg border transition-colors ${
+                    idx === store.currentBlockIndex
+                      ? 'border-[#3ecf8e] bg-[rgba(62,207,142,0.08)]'
+                      : 'border-[#2e2e2e] hover:border-[#363636]'
+                  }`}
+                >
+                  <div className="text-xs text-[#898989] mb-2 uppercase">{block.sectionType}</div>
+                  {block.lines.map((line, li) => (
+                    <div key={li} className="text-sm text-[#fafafa] leading-relaxed">
+                      {line}
+                    </div>
+                  ))}
+                </button>
               ))}
-            </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Right panel — preview + controls */}
+        <div className={`w-full flex flex-col border-l border-[#2e2e2e] bg-[#141414] ${mobileTab === 'controls' ? '' : 'hidden'} md:flex md:w-80 md:shrink-0`}>
+          {/* Preview of what's on screen */}
+          <div className="flex-1 p-4">
+            <div className="text-xs text-[#898989] uppercase mb-3">Display Preview</div>
+            <div className="aspect-video bg-black rounded-lg flex items-center justify-center overflow-hidden">
+              {store.isBlacked ? (
+                <div className="w-full h-full bg-black" />
+              ) : store.isShowingWelcome ? (
+                <div className="text-center">
+                  <div className="text-2xl text-[#fafafa]">♫</div>
+                  <div className="text-sm text-[#b4b4b4] mt-2">Welcome</div>
+                </div>
+              ) : allBlocks[store.currentBlockIndex] ? (
+                <div className="text-center px-4">
+                  {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
+                    <div key={i} className="text-white text-sm leading-relaxed">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-[#898989]">No content</div>
+              )}
+            </div>
+          </div>
+
+          {/* Control buttons */}
+          <div className="p-4 border-t border-[#2e2e2e] space-y-3">
+            <div className="flex gap-2">
+              <button
+                onClick={showWelcome}
+                className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
+                  store.isShowingWelcome
+                    ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
+                    : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
+                }`}
+              >
+                Welcome
+              </button>
+              <button
+                onClick={showBlack}
+                className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
+                  store.isBlacked
+                    ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
+                    : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
+                }`}
+              >
+                Black
+              </button>
+            </div>
+
+            {/* Video background dropdown */}
+            <div>
+              <label className="block text-xs text-[#898989] mb-1">Video Background</label>
+              <select
+                value={store.videoBackground?.url ?? ''}
+                onChange={(e) => changeBackground(e.target.value)}
+                className="w-full px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-xs text-[#fafafa] focus:outline-none focus:border-[#3ecf8e]"
+              >
+                <option value="">None</option>
+                {backgrounds.map((bg) => (
+                  <option key={bg.id} value={bg.url}>
+                    {bg.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

@@ -120,9 +120,9 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header — title, artist, key, action buttons */}
-      <div className="px-8 py-5 border-b border-[#2e2e2e]">
-        <div className="flex items-start justify-between">
-          <div>
+      <div className="px-4 md:px-8 py-5 border-b border-[#2e2e2e]">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
             {!songProp && (
               <button
                 onClick={() => navigate('/')}
@@ -136,7 +136,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
               {song.artist || 'Unknown artist'} · Key of {song.original_key}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => navigate(`/songs/${song.id}/edit`)}
               className="px-3 py-1.5 rounded border border-[#2e2e2e] text-xs text-[#b4b4b4] hover:text-[#fafafa] hover:border-[#363636] transition-colors"
@@ -153,7 +153,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
         </div>
 
         {/* Transpose controls */}
-        <div className="mt-4">
+        <div className="mt-4 overflow-x-auto">
           <TransposeControls
             currentKey={song.original_key}
             transpose={transpose}
@@ -165,7 +165,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
       </div>
 
       {/* Chord chart */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
         <ChordDisplay
           sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
           transpose={transpose}

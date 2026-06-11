@@ -103,6 +103,46 @@ function DraggableChordLine({
     [tokens, sectionIndex, lineIndex, onChordMove]
   )
 
+  const handleTouchStart = useCallback(
+    (tokenIndex: number, e: React.TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      dragRef.current = {
+        tokenIndex,
+        startX: touch.clientX,
+        startPos: tokens[tokenIndex].pos,
+      }
+
+      const handleTouchMove = (ev: TouchEvent) => {
+        ev.preventDefault()
+        if (!dragRef.current || !containerRef.current) return
+        const charWidth = 8.4
+        const dx = ev.touches[0].clientX - dragRef.current.startX
+        const charDelta = Math.round(dx / charWidth)
+        const newPos = Math.max(0, dragRef.current.startPos + charDelta)
+
+        const updated = tokens.map((t, i) => (i === dragRef.current!.tokenIndex ? { ...t, pos: newPos } : t))
+        for (let i = 1; i < updated.length; i++) {
+          const minPos = updated[i - 1].pos + updated[i - 1].chord.length + 1
+          if (updated[i].pos < minPos) {
+            updated[i] = { ...updated[i], pos: minPos }
+          }
+        }
+        onChordMove(sectionIndex, lineIndex, updated)
+      }
+
+      const handleTouchEnd = () => {
+        dragRef.current = null
+        window.removeEventListener('touchmove', handleTouchMove)
+        window.removeEventListener('touchend', handleTouchEnd)
+      }
+
+      window.addEventListener('touchmove', handleTouchMove, { passive: false })
+      window.addEventListener('touchend', handleTouchEnd)
+    },
+    [tokens, sectionIndex, lineIndex, onChordMove]
+  )
+
   if (tokens.length === 0) {
     // No chords to drag — render static
     return (
@@ -129,6 +169,7 @@ function DraggableChordLine({
             className="absolute text-[#3ecf8e] cursor-grab active:cursor-grabbing hover:text-[#5eeaa8] transition-colors"
             style={{ left: `${token.pos}ch` }}
             onMouseDown={(e) => handleMouseDown(ti, e)}
+            onTouchStart={(e) => handleTouchStart(ti, e)}
             title="Drag to adjust position"
           >
             {token.chord}
@@ -314,9 +355,9 @@ export default function SongEditor() {
       )}
 
       {/* Body — metadata + editor + preview */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 flex-col md:flex-row">
         {/* Left side — metadata + raw text editor */}
-        <div className="w-1/2 flex flex-col border-r border-[#2e2e2e]">
+        <div className="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-[#2e2e2e]">
           {/* Metadata fields */}
           <div className="px-6 py-4 space-y-3 border-b border-[#2e2e2e] shrink-0">
             <div className="flex gap-3">
@@ -386,7 +427,7 @@ export default function SongEditor() {
         </div>
 
         {/* Right side — live preview with draggable chords */}
-        <div className="w-1/2 flex flex-col">
+        <div className="w-full md:w-1/2 flex flex-col">
           <div className="flex items-center justify-between px-6 py-2 border-b border-[#2e2e2e] shrink-0">
             <span className="text-xs text-[#898989] uppercase tracking-wider">
               Preview — drag chords to align

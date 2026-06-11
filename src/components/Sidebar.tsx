@@ -1,4 +1,6 @@
-/** Sidebar — Reusable left panel for song/playlist lists, matching sketches/003-split-panel */
+/** Sidebar — Reusable left panel for song/playlist lists, matching sketches/003-split-panel.
+ *  Responsive: fixed-width on desktop, full-screen overlay on mobile.
+ */
 
 import { useUIStore } from '../store/uiStore'
 
@@ -18,6 +20,8 @@ export interface SidebarProps {
   searchPlaceholder?: string
   filterQuery?: string
   onFilterChange?: (query: string) => void
+  /** Called when an item is selected on mobile (to close the overlay) */
+  onClose?: () => void
 }
 
 /** Reusable sidebar list panel — matches the left panel from sketches/003-split-panel */
@@ -30,14 +34,20 @@ export function Sidebar({
   searchPlaceholder = 'Filter...',
   filterQuery = '',
   onFilterChange,
+  onClose,
 }: SidebarProps) {
-  const { sidebarWidth } = useUIStore()
+  const { sidebarWidth, sidebarOpen, setSidebarOpen } = useUIStore()
 
-  return (
-    <div
-      className="flex flex-col shrink-0 bg-[#141414] border-r border-[#2e2e2e]"
-      style={{ width: `${sidebarWidth}px` }}
-    >
+  /** Handle item selection — on mobile, also close the overlay */
+  function handleSelect(id: string) {
+    onSelect(id)
+    onClose?.()
+    setSidebarOpen(false)
+  }
+
+  /** The inner sidebar panel content shared between mobile & desktop */
+  const sidebarContent = (
+    <>
       {/* Header — title + add button */}
       <div className="px-4 py-4 border-b border-[#2e2e2e] flex items-center justify-between">
         <span className="text-[13px] font-medium text-[#898989] uppercase tracking-wider">
@@ -71,7 +81,7 @@ export function Sidebar({
           return (
             <button
               key={item.id}
-              onClick={() => onSelect(item.id)}
+              onClick={() => handleSelect(item.id)}
               className={`w-full text-left px-4 py-3 border-b border-[#1e1e1e] cursor-pointer transition-colors ${
                 isActive
                   ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
@@ -100,6 +110,36 @@ export function Sidebar({
           </div>
         )}
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* ── Mobile overlay (< md) ── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Semi-transparent backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => {
+              setSidebarOpen(false)
+              onClose?.()
+            }}
+          />
+          {/* Sidebar panel — slides in from left */}
+          <div className="relative w-[85vw] max-w-[360px] flex flex-col bg-[#141414] border-r border-[#2e2e2e] animate-in">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+
+      {/* ── Desktop fixed-width sidebar (md+) ── */}
+      <div
+        className="hidden md:flex flex-col shrink-0 bg-[#141414] border-r border-[#2e2e2e]"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        {sidebarContent}
+      </div>
+    </>
   )
 }
