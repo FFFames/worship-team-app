@@ -1,26 +1,34 @@
-/** Hook for fetching and managing video backgrounds */
+/** Hook for fetching and managing video backgrounds using localStorage */
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
 import type { VideoBackground } from '../types/database'
+import { STORAGE_KEYS } from '../utils/seedData'
+
+const STORAGE_KEY = STORAGE_KEYS.backgrounds
+
+function getAllBackgrounds(): VideoBackground[] {
+  const data = localStorage.getItem(STORAGE_KEY)
+  return data ? JSON.parse(data) : []
+}
+
+function saveAllBackgrounds(backgrounds: VideoBackground[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(backgrounds))
+}
 
 export function useVideoBackgrounds() {
   const [backgrounds, setBackgrounds] = useState<VideoBackground[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchBackgrounds = useCallback(async () => {
-    setLoading(true)
-    const { data, error: err } = await supabase
-      .from('video_backgrounds')
-      .select('*')
-      .order('created_at', { ascending: true })
-
-    if (err) {
-      console.error('Failed to fetch backgrounds:', err.message)
-    } else {
-      setBackgrounds(data as VideoBackground[])
+  const fetchBackgrounds = useCallback(() => {
+    try {
+      setLoading(true)
+      const all = getAllBackgrounds()
+      setBackgrounds(all)
+    } catch (err) {
+      console.error('Failed to fetch backgrounds:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -28,22 +36,31 @@ export function useVideoBackgrounds() {
   }, [fetchBackgrounds])
 
   const addBackground = useCallback(async (name: string, url: string): Promise<void> => {
-    const { error: err } = await supabase
-      .from('video_backgrounds')
-      .insert({ name, url })
+    const newBackground: VideoBackground = {
+      id: crypto.randomUUID(),
+      name,
+      url,
+      is_default: false,
+      created_at: new Date().toISOString(),
+    }
 
-    if (err) throw new Error(err.message)
+    const all = getAllBackgrounds()
+    all.push(newBackground)
+    saveAllBackgrounds(all)
+
     await fetchBackgrounds()
   }, [fetchBackgrounds])
 
   const removeBackground = useCallback(async (id: string): Promise<void> => {
-    const { error: err } = await supabase
-      .from('video_backgrounds')
-      .delete()
-      .eq('id', id)
+    const all = getAllBackgrounds()
+    const filtered = all.filter(b => b.id !== id)
 
-    if (err) throw new Error(err.message)
-    setBackgrounds((prev) => prev.filter((b) => b.id !== id))
+    if (filtered.length === all.length) {
+      throw new Error(`Background with id ${id} not found`)
+    }
+
+    saveAllBackgrounds(filtered)
+    setBackgrounds(filtered)
   }, [])
 
   return { backgrounds, loading, addBackground, removeBackground }
