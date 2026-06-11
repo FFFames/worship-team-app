@@ -1,6 +1,6 @@
 /** PDF generation utility — exports a full playlist to a downloadable A4 PDF.
  *  Uses html2canvas to render song content as images for perfect Thai font support,
- *  then assembles them into a multi-page PDF via jsPDF.
+ *  then assembles them into a two-column-per-page PDF via jsPDF.
  *  This approach handles วรรณยุกต์ (tone marks) and complex Thai shaping correctly
  *  because the browser's text renderer handles all OpenType GPOS/GSUB lookups. */
 
@@ -11,28 +11,33 @@ import { transposeChordLine, transposeKey } from './transpose';
 
 const PAGE_W = 210; // A4 width mm
 const PAGE_H = 297; // A4 height mm
-const MARGIN = 12;
+const MARGIN_X = 10;
+const MARGIN_Y = 15;
+const COL_GAP = 4; // mm between columns
+const COL_W = (PAGE_W - MARGIN_X * 2 - COL_GAP) / 2; // 93mm per column
+const COL_CONTENT_H = PAGE_H - MARGIN_Y * 2; // usable height per column
 
-/** A4 at 96 DPI → 794×1123 px. Scale 2x for crisp rendering. */
+/** A4 at 96 DPI */
 const PX_PER_MM = 96 / 25.4;
 const RENDER_SCALE = 2;
 
 /**
  * Build the HTML for all songs in a playlist, render via html2canvas,
- * split into A4 pages, and save as PDF.
+ * split into column-height strips, pair them left+right per page, save PDF.
  */
 export async function exportPlaylistToPDF(
   playlistName: string,
   playlistSongs: PlaylistSong[],
 ): Promise<void> {
-  // 1. Build the full HTML content
+  // 1. Build the HTML content (single column)
   const html = buildPlaylistHTML(playlistName, playlistSongs);
 
-  // 2. Create a hidden container and inject the HTML
+  // 2. Create a hidden container at column width
+  const colWidthPx = COL_W * PX_PER_MM;
   const container = document.createElement('div');
   container.style.cssText = `
     position: fixed; top: -9999px; left: 0;
-    width: ${(PAGE_W - MARGIN * 2) * PX_PER_MM}px;
+    width: ${colWidthPx}px;
     font-family: 'Sukhumvit Set', 'Thonburi', 'Sarabun', sans-serif;
     background: white; color: #000; padding: 0; margin: 0;
     line-height: 1.5;
@@ -41,7 +46,7 @@ export async function exportPlaylistToPDF(
   document.body.appendChild(container);
 
   try {
-    // 3. Render to canvas via html2canvas
+    // 3. Render to canvas
     const canvas = await html2canvas(container, {
       scale: RENDER_SCALE,
       useCORS: true,
@@ -49,42 +54,53 @@ export async function exportPlaylistToPDF(
       logging: false,
     });
 
-    // 4. Split the tall canvas into A4 pages and build PDF
+    // 4. Split into column-height strips, pair 2 per page
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    const contentWidthMM = PAGE_W - MARGIN * 2;
-    const contentHeightMM = PAGE_H - MARGIN * 2;
+    // Height of one column in canvas pixels
+    const colPxHeight = Math.round(COL_CONTENT_H * PX_PER_MM * RENDER_SCALE);
+    const totalColPx = canvas.height;
+    const numStrips = Math.ceil(totalColPx / colPxHeight);
 
-    // How many mm the canvas represents total
-    const totalHeightMM = canvas.height / PX_PER_MM / RENDER_SCALE;
-    const pagesNeeded = Math.ceil(totalHeightMM / contentHeightMM);
+    for (let strip = 0; strip < numStrips; strip++) {
+      // Every 2 strips = 1 PDF page
+      if (strip % 2 === 0) {
+        if (strip > 0) doc.addPage();
+      }
 
-    for (let page = 0; page < pagesNeeded; page++) {
-      if (page > 0) doc.addPage();
+      const isRightCol = strip % 2 === 1;
+      const x = isRightCol ? MARGIN_X + COL_W + COL_GAP : MARGIN_X;
 
-      // Calculate slice bounds in canvas pixels
-      const srcY = Math.round(page * (canvas.height / pagesNeeded));
-      const srcH = Math.round(canvas.height / pagesNeeded);
+      // Source region in canvas pixels
+      const srcY = strip * colPxHeight;
+      const srcH = Math.min(colPxHeight, totalColPx - srcY);
+      if (srcH <= 0) break;
 
-      // Create a temporary canvas for this page slice
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = srcH;
-      const ctx = pageCanvas.getContext('2d')!;
+      // Create slice canvas
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = srcH;
+      const ctx = sliceCanvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
       ctx.drawImage(
         canvas,
         0, srcY, canvas.width, srcH,
         0, 0, canvas.width, srcH,
       );
 
-      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+      const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+
+      // Calculate actual rendered height in mm (last strip may be shorter)
+      const stripHeightMM = srcH / PX_PER_MM / RENDER_SCALE;
+
       doc.addImage(
         imgData,
         'JPEG',
-        MARGIN,
-        MARGIN,
-        contentWidthMM,
-        contentHeightMM,
+        x,
+        MARGIN_Y,
+        COL_W,
+        Math.min(stripHeightMM, COL_CONTENT_H),
       );
     }
 
@@ -100,20 +116,19 @@ export async function exportPlaylistToPDF(
 
     doc.save(`${playlistName}.pdf`);
   } finally {
-    // Clean up the hidden container
     document.body.removeChild(container);
   }
 }
 
-/** Build the HTML string for the full playlist content */
+/** Build the HTML string for the full playlist content (single column) */
 function buildPlaylistHTML(playlistName: string, songs: PlaylistSong[]): string {
   const parts: string[] = [];
 
-  // Title
+  // Title header
   parts.push(`
-    <div style="text-align: center; padding-bottom: 16px; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px;">
-      <div style="font-size: 28px; font-weight: bold; margin-bottom: 4px;">${esc(playlistName)}</div>
-      <div style="font-size: 14px; color: #666;">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
+    <div style="text-align: center; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0; margin-bottom: 16px;">
+      <div style="font-size: 22px; font-weight: bold; margin-bottom: 2px;">${esc(playlistName)}</div>
+      <div style="font-size: 12px; color: #666;">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
     </div>
   `);
 
@@ -127,52 +142,46 @@ function buildPlaylistHTML(playlistName: string, songs: PlaylistSong[]): string 
 
     const sections: Section[] = song.content_parsed?.sections ?? [];
 
-    parts.push(`<div style="margin-bottom: 24px;">`);
+    parts.push(`<div style="margin-bottom: 18px;">`);
 
     // Song title
-    parts.push(`<div style="font-size: 18px; font-weight: bold; margin-bottom: 2px;">${esc(song.title)}</div>`);
+    parts.push(`<div style="font-size: 15px; font-weight: bold; margin-bottom: 1px;">${esc(song.title)}</div>`);
 
     // Artist
     if (song.artist) {
-      parts.push(`<div style="font-size: 12px; color: #888; margin-bottom: 2px;">${esc(song.artist)}</div>`);
+      parts.push(`<div style="font-size: 10px; color: #888; margin-bottom: 1px;">${esc(song.artist)}</div>`);
     }
 
     // Key
     const keyLabel = transpose !== 0
       ? `Key: ${song.original_key} → ${transposedKey}`
       : `Key: ${song.original_key}`;
-    parts.push(`<div style="font-size: 11px; color: #555; margin-bottom: 10px;">${esc(keyLabel)}</div>`);
+    parts.push(`<div style="font-size: 10px; color: #555; margin-bottom: 8px;">${esc(keyLabel)}</div>`);
 
     // Sections
     for (const section of sections) {
-      // Section marker
       if (section.marker) {
-        parts.push(`<div style="font-size: 11px; color: #999; font-style: italic; margin-top: 8px; margin-bottom: 4px;">${esc(section.marker)}</div>`);
+        parts.push(`<div style="font-size: 10px; color: #999; font-style: italic; margin-top: 6px; margin-bottom: 3px;">${esc(section.marker)}</div>`);
       }
 
       for (const line of section.lines) {
-        // Chord line — green monospace
         if (line.chords) {
           const transposedChords = transpose !== 0
             ? transposeChordLine(line.chords, transpose)
             : line.chords;
-          parts.push(`<div style="font-family: 'Courier New', monospace; font-size: 12px; color: #008050; line-height: 1.3; white-space: pre;">${esc(transposedChords)}</div>`);
+          parts.push(`<div style="font-family: 'Courier New', monospace; font-size: 10px; color: #008050; line-height: 1.2; white-space: pre;">${esc(transposedChords)}</div>`);
         }
 
-        // Lyrics line
         if (line.lyrics) {
-          parts.push(`<div style="font-size: 13px; line-height: 1.5; white-space: pre-wrap;">${esc(line.lyrics)}</div>`);
+          parts.push(`<div style="font-size: 12px; line-height: 1.4; white-space: pre-wrap;">${esc(line.lyrics)}</div>`);
         }
       }
 
-      // Gap between sections
-      parts.push(`<div style="height: 6px;"></div>`);
+      parts.push(`<div style="height: 4px;"></div>`);
     }
 
     parts.push(`</div>`);
-
-    // Divider between songs
-    parts.push(`<div style="border-top: 1px solid #e8e8e8; margin: 8px 0 20px 0;"></div>`);
+    parts.push(`<div style="border-top: 1px solid #e8e8e8; margin: 6px 0 14px 0;"></div>`);
   }
 
   return parts.join('');
