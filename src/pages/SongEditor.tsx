@@ -105,21 +105,53 @@ function DraggableChordLine({
 
   const handleTouchStart = useCallback(
     (tokenIndex: number, e: React.TouchEvent) => {
-      e.preventDefault()
       const touch = e.touches[0]
+      const startX = touch.clientX
+      const startY = touch.clientY
+      const startPos = tokens[tokenIndex].pos
+
+      // Start in "pending" mode — don't steal the touch yet.
+      // Only lock into drag mode once finger moves >8px horizontally.
+      // If it moves >8px vertically first, cancel (it's a scroll).
+      let dragLocked = false
+      let cancelled = false
+
       dragRef.current = {
         tokenIndex,
-        startX: touch.clientX,
-        startPos: tokens[tokenIndex].pos,
+        startX,
+        startPos,
       }
 
       const handleTouchMove = (ev: TouchEvent) => {
-        ev.preventDefault()
+        if (cancelled) return
+
+        const dx = ev.touches[0].clientX - startX
+        const dy = ev.touches[0].clientY - startY
+
+        // Not yet decided if this is a drag or a scroll
+        if (!dragLocked) {
+          if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+            // Vertical scroll intent — cancel drag, let scroll happen
+            cancelled = true
+            dragRef.current = null
+            cleanup()
+            return
+          }
+          if (Math.abs(dx) > 8) {
+            // Horizontal drag intent — lock in
+            dragLocked = true
+            ev.preventDefault()
+          } else {
+            return // Still ambiguous, wait
+          }
+        } else {
+          ev.preventDefault()
+        }
+
         if (!dragRef.current || !containerRef.current) return
         const charWidth = 8.4
-        const dx = ev.touches[0].clientX - dragRef.current.startX
         const charDelta = Math.round(dx / charWidth)
-        const newPos = Math.max(0, dragRef.current.startPos + charDelta)
+        const newPos = Math.max(0, startPos + charDelta)
 
         const updated = tokens.map((t, i) => (i === dragRef.current!.tokenIndex ? { ...t, pos: newPos } : t))
         for (let i = 1; i < updated.length; i++) {
@@ -131,10 +163,14 @@ function DraggableChordLine({
         onChordMove(sectionIndex, lineIndex, updated)
       }
 
-      const handleTouchEnd = () => {
+      const cleanup = () => {
         dragRef.current = null
         window.removeEventListener('touchmove', handleTouchMove)
         window.removeEventListener('touchend', handleTouchEnd)
+      }
+
+      const handleTouchEnd = () => {
+        cleanup()
       }
 
       window.addEventListener('touchmove', handleTouchMove, { passive: false })
