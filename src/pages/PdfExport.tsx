@@ -8,15 +8,20 @@ import { exportPlaylistToPDF } from '../utils/pdfExport';
 export default function PdfExport() {
   const { id } = useParams<{ id: string }>();
   const { playlist, songs, loading, error } = usePlaylist(id);
-  const [status, setStatus] = useState<'generating' | 'done'>('generating');
+  const [status, setStatus] = useState<'generating' | 'done' | 'error'>('generating');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (loading || error || !playlist || songs.length === 0) return;
 
-    // Small timeout so the user sees the "Generating..." state
     const timer = setTimeout(() => {
-      exportPlaylistToPDF(playlist.name, songs);
-      setStatus('done');
+      exportPlaylistToPDF(playlist.name, songs)
+        .then(() => setStatus('done'))
+        .catch((err) => {
+          console.error('PDF export failed:', err);
+          setErrorMsg(err instanceof Error ? err.message : 'Unknown error');
+          setStatus('error');
+        });
     }, 500);
 
     return () => clearTimeout(timer);
@@ -31,7 +36,6 @@ export default function PdfExport() {
             <p className="text-[#b4b4b4] text-sm">Loading playlist data…</p>
           </>
         )}
-
         {error && (
           <>
             <p className="text-red-400 text-sm mb-4">Error: {error}</p>
@@ -43,7 +47,6 @@ export default function PdfExport() {
             </Link>
           </>
         )}
-
         {!loading && !error && status === 'generating' && (
           <>
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#3ecf8e] border-t-transparent mx-auto mb-4" />
@@ -51,9 +54,9 @@ export default function PdfExport() {
             <p className="text-[#898989] text-sm mt-1">
               {playlist?.name} · {songs.length} song{songs.length !== 1 ? 's' : ''}
             </p>
+            <p className="text-[#898989] text-xs mt-2">Loading Thai font…</p>
           </>
         )}
-
         {!loading && !error && status === 'done' && (
           <>
             <div className="text-4xl mb-4">✅</div>
@@ -61,6 +64,19 @@ export default function PdfExport() {
             <p className="text-[#898989] text-sm mt-1 mb-6">
               {playlist?.name}.pdf
             </p>
+            <Link
+              to={`/playlists/${id}`}
+              className="inline-block px-5 py-2 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:brightness-110 transition"
+            >
+              ← Back to playlist
+            </Link>
+          </>
+        )}
+        {!loading && !error && status === 'error' && (
+          <>
+            <div className="text-4xl mb-4">❌</div>
+            <p className="text-[#fafafa] text-lg font-medium">Export failed</p>
+            <p className="text-red-400 text-sm mt-1 mb-6">{errorMsg}</p>
             <Link
               to={`/playlists/${id}`}
               className="inline-block px-5 py-2 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:brightness-110 transition"
