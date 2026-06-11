@@ -137,14 +137,17 @@ async function renderHeader(name: string, songCount: number): Promise<HeaderRend
 
 /** Render a single song into a canvas and return its data URL + height in mm */
 async function renderSong(
-  song: { title: string; artist: string | null; original_key: string; raw_content?: string },
+  song: { title: string; artist: string | null; original_key: string; raw_content?: string; sections?: Section[] | null },
   transpose: number,
 ): Promise<SongRender> {
   const transposedKey =
     transpose !== 0 ? transposeKey(song.original_key, transpose) : song.original_key;
-  const sections: Section[] = song.raw_content
-    ? parseChordLyrics(song.raw_content).sections
-    : [];
+  // Use stored sections (which may have drag-adjusted chord positions) instead of re-parsing
+  const sections: Section[] = song.sections?.length
+    ? song.sections
+    : song.raw_content
+      ? parseChordLyrics(song.raw_content).sections
+      : [];
 
   const html = buildSongHTML(song.title, song.artist, transposedKey, song.original_key, transpose, sections);
 

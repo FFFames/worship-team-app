@@ -15,11 +15,13 @@ export default function StageView() {
   const mainRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Auto-scroll: scroll down 1px every 40ms (~25px/sec)
+  // Auto-scroll: scroll the container down 1px every 40ms (~25px/sec)
   useEffect(() => {
     if (autoScroll) {
       scrollIntervalRef.current = setInterval(() => {
-        window.scrollBy({ top: 1, behavior: 'auto' });
+        if (mainRef.current) {
+          mainRef.current.scrollTop += 1;
+        }
       }, 40);
     } else if (scrollIntervalRef.current) {
       clearInterval(scrollIntervalRef.current);
@@ -50,14 +52,17 @@ export default function StageView() {
 
   const scrollToSong = (songId: string) => {
     const el = document.getElementById(`song-${songId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el && mainRef.current) {
+      // Scroll within the container, accounting for sticky nav height
+      const navHeight = 48;
+      const elTop = el.offsetTop - mainRef.current.offsetTop - navHeight;
+      mainRef.current.scrollTo({ top: elTop, behavior: 'smooth' });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+      <div className="h-full bg-[#0f0f0f] flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#3ecf8e] border-t-transparent" />
       </div>
     );
@@ -65,7 +70,7 @@ export default function StageView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-6">
+      <div className="h-full bg-[#0f0f0f] flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-red-400 text-lg mb-4">Error: {error}</p>
           <Link to={`/playlists/${id}`} className="text-[#3ecf8e] text-sm hover:underline">
@@ -77,7 +82,7 @@ export default function StageView() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-[#fafafa]" ref={mainRef}>
+    <div className="h-full overflow-y-auto bg-[#0f0f0f] text-[#fafafa]" ref={mainRef}>
       {/* ---- Sticky mini song list ---- */}
       <nav className="sticky top-0 z-50 bg-[#171717]/95 backdrop-blur border-b border-[#2e2e2e] px-4 py-2">
         <div className="max-w-5xl mx-auto flex items-center gap-3 flex-wrap">
