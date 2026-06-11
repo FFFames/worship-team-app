@@ -393,7 +393,7 @@ export default function SongEditor() {
       {/* Body — metadata + editor + preview */}
       <div className="flex-1 flex min-h-0 flex-col md:flex-row">
         {/* Left side — metadata + raw text editor */}
-        <div className="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-[#2e2e2e]">
+        <div className="w-full md:w-1/2 flex flex-col min-h-0 border-b md:border-b-0 md:border-r border-[#2e2e2e]">
           {/* Metadata fields */}
           <div className="px-6 py-4 space-y-3 border-b border-[#2e2e2e] shrink-0">
             <div className="flex gap-3">
@@ -463,7 +463,7 @@ export default function SongEditor() {
         </div>
 
         {/* Right side — live preview with draggable chords */}
-        <div className="w-full md:w-1/2 flex flex-col">
+        <div className="w-full md:w-1/2 flex flex-col min-h-0">
           <div className="flex items-center justify-between px-6 py-2 border-b border-[#2e2e2e] shrink-0">
             <span className="text-xs text-[#898989] uppercase tracking-wider">
               Preview — drag chords to align
