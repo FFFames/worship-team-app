@@ -133,10 +133,6 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
     }
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
-
   const handleShare = async () => {
     if (navigator.share && song) {
       try {
@@ -305,17 +301,6 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
             คัดลอก
-          </button>
-          <button
-            onClick={handlePrint}
-            className="quick-btn"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
-              <polyline points="6 9 6 2 18 2 18 9"/>
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-              <rect x="6" y="14" width="12" height="8"/>
-            </svg>
-            พิมพ์
           </button>
           <button
             onClick={handleShare}

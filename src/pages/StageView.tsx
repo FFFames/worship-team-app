@@ -63,9 +63,11 @@ export default function StageView() {
   const scrollToSong = (songId: string) => {
     const el = document.getElementById(`song-${songId}`)
     if (el && mainRef.current) {
-      const navHeight = 48
-      const elTop = el.offsetTop - mainRef.current.offsetTop - navHeight
-      mainRef.current.scrollTo({ top: elTop, behavior: 'smooth' })
+      const containerRect = mainRef.current.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      // Offset: position of element relative to container, minus nav height (~56px)
+      const offset = elRect.top - containerRect.top + mainRef.current.scrollTop - 56
+      mainRef.current.scrollTo({ top: offset, behavior: 'smooth' })
     }
   }
 
@@ -102,7 +104,21 @@ export default function StageView() {
   }
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: 'var(--bg-primary)', color: 'var(--fg-primary)' }} ref={mainRef}>
+    <div
+      ref={mainRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: 'var(--bg-primary)',
+        color: 'var(--fg-primary)',
+        zIndex: 30,
+      }}
+    >
       {/* ---- Sticky mini song list ---- */}
       <motion.nav
         initial={{ opacity: 0, y: -8 }}
@@ -119,7 +135,7 @@ export default function StageView() {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap', maxWidth: '80rem', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap', maxWidth: '100rem', margin: '0 auto' }}>
           <Link
             to={`/playlists/${id}`}
             style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)', textDecoration: 'none', flexShrink: 0, transition: 'color 150ms var(--ease-out)', fontFamily: 'var(--font-display)' }}
@@ -182,114 +198,121 @@ export default function StageView() {
         </div>
       </motion.nav>
 
-      {/* ---- Song content ---- */}
-      <main style={{ maxWidth: '80rem', margin: '0 auto', padding: 'var(--space-lg) var(--space-md) var(--space-xl)' }}>
+      {/* ---- Song content — 2-column grid for wide screens ---- */}
+      <main style={{ maxWidth: '100rem', margin: '0 auto', padding: 'var(--space-xl) var(--space-md) var(--space-3xl)', minHeight: 'calc(100dvh - 56px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {songs.length === 0 && (
           <p style={{ textAlign: 'center', fontSize: '1.125rem', padding: 'var(--space-4xl) 0', color: 'var(--fg-tertiary)' }}>
             ไม่มีเพลงในเพลย์ลิสต์นี้
           </p>
         )}
 
-        {songs.map((ps, idx) => {
-          const song = ps.song
-          if (!song) return null
+        {songs.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 30rem), 1fr))',
+              gap: 'var(--space-2xl)',
+              alignItems: 'start',
+              width: '100%',
+            }}
+          >
+            {songs.map((ps, idx) => {
+              const song = ps.song
+              if (!song) return null
 
-          const transpose = ps.transpose ?? 0
-          const transposedKey =
-            transpose !== 0
-              ? transposeKey(song.original_key, transpose)
-              : song.original_key
+              const transpose = ps.transpose ?? 0
+              const transposedKey =
+                transpose !== 0
+                  ? transposeKey(song.original_key, transpose)
+                  : song.original_key
 
-          return (
-            <motion.article
-              key={ps.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05, ease: easeOutExpo }}
-              id={`song-${ps.id}`}
-              style={{ marginBottom: 'var(--space-3xl)', scrollMarginTop: 80 }}
-            >
-              {/* Song header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', width: 24, flexShrink: 0, color: 'var(--fg-tertiary)' }}>
-                  {idx + 1}
-                </span>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 500, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>{song.title}</h2>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: 'var(--space-xs) var(--space-sm)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontFamily: 'var(--font-mono)',
-                    background: 'var(--accent-bg)',
-                    color: 'var(--accent)',
-                  }}
+              return (
+                <motion.article
+                  key={ps.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05, ease: easeOutExpo }}
+                  id={`song-${ps.id}`}
+                  style={{ scrollMarginTop: 72 }}
                 >
-                  {transposedKey}
-                </span>
+                  {/* Song header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', width: 24, flexShrink: 0, color: 'var(--fg-tertiary)' }}>
+                      {idx + 1}
+                    </span>
+                    <h2 style={{ fontSize: '1.375rem', fontWeight: 500, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>{song.title}</h2>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: 'var(--space-xs) var(--space-sm)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontFamily: 'var(--font-mono)',
+                        background: 'var(--accent-bg)',
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      {transposedKey}
+                    </span>
 
-                {/* Compact transpose controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
-                  <button
-                    onClick={() => handleTranspose(ps.id, transpose, -1)}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '1rem',
-                      background: 'var(--bg-input)',
-                      color: 'var(--fg-secondary)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      transition: 'all 200ms var(--ease-out)',
-                    }}
-                    title="เปลี่ยนคีย์ลง 1 โน้ต"
-                  >
-                    −
-                  </button>
-                  <span style={{ fontSize: '0.75rem', width: 32, textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--fg-tertiary)' }}>
-                    {transpose > 0 ? `+${transpose}` : transpose}
-                  </span>
-                  <button
-                    onClick={() => handleTranspose(ps.id, transpose, 1)}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '1rem',
-                      background: 'var(--bg-input)',
-                      color: 'var(--fg-secondary)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      transition: 'all 200ms var(--ease-out)',
-                    }}
-                    title="เปลี่ยนคีย์ขึ้น 1 โน้ต"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+                    {/* Compact transpose controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <button
+                        onClick={() => handleTranspose(ps.id, transpose, -1)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '1rem',
+                          background: 'var(--bg-input)',
+                          color: 'var(--fg-secondary)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 200ms var(--ease-out)',
+                        }}
+                        title="เปลี่ยนคีย์ลง 1 โน้ต"
+                      >
+                        −
+                      </button>
+                      <span style={{ fontSize: '0.75rem', width: 30, textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--fg-tertiary)' }}>
+                        {transpose > 0 ? `+${transpose}` : transpose}
+                      </span>
+                      <button
+                        onClick={() => handleTranspose(ps.id, transpose, 1)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '1rem',
+                          background: 'var(--bg-input)',
+                          color: 'var(--fg-secondary)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 200ms var(--ease-out)',
+                        }}
+                        title="เปลี่ยนคีย์ขึ้น 1 โน้ต"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Chord display — larger fonts for stage readability */}
-              <ChordDisplay
-                sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
-                transpose={transpose}
-                className="pl-2 md:pl-6"
-              />
-
-              {/* Divider */}
-              {idx < songs.length - 1 && (
-                <div style={{ marginTop: 'var(--space-2xl)', borderBottom: '1px solid var(--border-subtle)' }} />
-              )}
-            </motion.article>
-          )
-        })}
+                  {/* Chord display */}
+                  <ChordDisplay
+                    sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
+                    transpose={transpose}
+                    center
+                  />
+                </motion.article>
+              )
+            })}
+          </div>
+        )}
       </main>
     </div>
   )

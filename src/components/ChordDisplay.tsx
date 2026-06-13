@@ -9,6 +9,8 @@ export interface ChordDisplayProps {
   useFlats?: boolean;
   showChords?: boolean;
   className?: string;
+  /** Center the entire chart block horizontally (preserves chord/lyric alignment) */
+  center?: boolean;
 }
 
 export function ChordDisplay({
@@ -17,9 +19,10 @@ export function ChordDisplay({
   useFlats = false,
   showChords = true,
   className = '',
+  center = false,
 }: ChordDisplayProps) {
-  return (
-    <div className={className}>
+  const content = (
+    <>
       {sections.map((section, si) => (
         <div key={si} className="mb-6">
           {/* Section marker label */}
@@ -46,6 +49,20 @@ export function ChordDisplay({
           ))}
         </div>
       ))}
-    </div>
+    </>
   );
+
+  // When centering: wrap in flex + inline-block so the chart block is
+  // centered as a unit while internal chord/lyric alignment is preserved.
+  if (center) {
+    return (
+      <div className={className} style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'inline-block', textAlign: 'left' }}>
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
