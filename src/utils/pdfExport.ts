@@ -5,7 +5,7 @@
  *  Uses html2canvas for perfect Thai วรรณยุกต์ rendering. */
 
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import type { PlaylistSong, Section } from '../types/database';
 import { transposeChordLine, transposeKey } from './transpose';
 import { parseChordLyrics } from './chordParser';

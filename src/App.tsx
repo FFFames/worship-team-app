@@ -19,7 +19,7 @@ const PdfExport = lazy(() => import('./pages/PdfExport'))
 function LoadingSpinner() {
   return (
     <div className="flex-1 flex items-center justify-center h-full">
-      <div className="w-6 h-6 border-2 border-[#2e2e2e] border-t-[#3ecf8e] rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-subtle)', borderTopColor: 'var(--accent)' }} />
     </div>
   )
 }

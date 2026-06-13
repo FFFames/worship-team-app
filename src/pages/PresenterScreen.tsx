@@ -1,6 +1,12 @@
-/** PresenterScreen — fullscreen display window for live presentation.
- *  Receives commands from PresentationControl via BroadcastChannel.
- *  Shows lyrics, welcome page, or black screen with optional video background. */
+/** PresenterScreen — Fullscreen display window for live presentation
+ *
+ * Design system:
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Balanced, centered layouts (NEVER left-leaning)
+ * - Kanit font for display/body, Source Code Pro for chords
+ * - Exponential ease-out motion curves only
+ */
 
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -55,13 +61,13 @@ export default function PresenterScreen() {
   }, [backgroundUrl])
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden">
+    <div style={{ position: 'fixed', inset: 0, background: 'black', overflow: 'hidden' }}>
       {/* Video background */}
       {backgroundUrl && mode !== 'black' && (
         <video
           ref={videoRef}
           src={backgroundUrl}
-          className="absolute inset-0 w-full h-full object-cover opacity-30"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }}
           loop
           muted
           playsInline
@@ -70,26 +76,26 @@ export default function PresenterScreen() {
 
       {/* Content overlay */}
       {mode === 'black' ? (
-        <div className="w-full h-full bg-black" />
+        <div style={{ width: '100%', height: '100%', background: 'black' }} />
       ) : mode === 'welcome' ? (
-        <div className="relative z-10 flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="text-8xl mb-6">♫</div>
-            <h1 className="text-5xl font-light text-white tracking-wide">
+        <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '5rem', marginBottom: 'var(--space-xl)' }}>♫</div>
+            <h1 style={{ fontSize: 'clamp(3rem, 8vw, 5rem)', fontWeight: 300, color: 'white', letterSpacing: '0.05em', fontFamily: 'var(--font-display)', margin: 0 }}>
               Welcome
             </h1>
-            <p className="text-xl text-white/60 mt-4">
+            <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: 'var(--space-lg)' }}>
               Please stand by
             </p>
           </div>
         </div>
       ) : (
-        <div className="relative z-10 flex items-center justify-center h-full px-16">
-          <div className="text-center max-w-4xl">
+        <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '0 var(--space-4xl)' }}>
+          <div style={{ textAlign: 'center', maxWidth: '64rem' }}>
             {lyrics.split('\n').map((line, i) => (
               <p
                 key={i}
-                className="text-4xl md:text-5xl font-light text-white leading-relaxed mb-2"
+                style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 300, color: 'white', lineHeight: 1.4, marginBottom: 'var(--space-sm)', fontFamily: 'var(--font-display)' }}
               >
                 {line}
               </p>
