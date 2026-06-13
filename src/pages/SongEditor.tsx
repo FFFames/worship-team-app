@@ -35,7 +35,9 @@ interface ChordToken {
 /** Parse a chord line string into individual chord tokens with positions */
 function tokenizeChordLine(line: string): ChordToken[] {
   const tokens: ChordToken[] = []
-  const regex = /([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|7|9|11|13|6|2|4|5|°|ø)?(?:\/[A-G][#b]?)?)/g
+  // Order matters: match longer suffixes (maj, min) before short ones (m).
+  // The (?:...)* group repeats so multi-part suffixes like "m7b5", "maj7#11" work.
+  const regex = /([A-G][#b]?(?:maj|min|m|M|dim|aug|sus|add|#?b?(?:2|4|5|6|7|9|11|13))*(?:\/[A-G][#b]?)?)/g
   let match: RegExpExecArray | null
   while ((match = regex.exec(line)) !== null) {
     tokens.push({ chord: match[1], pos: match.index })
@@ -486,6 +488,7 @@ export default function SongEditor() {
               style={{
                 flex: 1,
                 width: '100%',
+                minHeight: '60vh',
                 padding: 'var(--space-lg)',
                 background: 'transparent',
                 fontSize: '0.875rem',

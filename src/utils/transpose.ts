@@ -5,13 +5,28 @@
 
 import { CHROMATIC_SHARP, CHROMATIC_FLAT } from '../types/database';
 
-/** Regex to split a chord into root note and suffix */
-const CHORD_REGEX = /^([A-G][#b]?)(.*)$/;
+/** Regex to split a chord into root note, suffix, and optional slash bass */
+const CHORD_REGEX = /^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/;
+
+/** Find the chromatic index of a root note, checking both sharp and flat arrays */
+function findRootIndex(root: string): number {
+  let idx = CHROMATIC_SHARP.indexOf(root);
+  if (idx === -1) idx = CHROMATIC_FLAT.indexOf(root);
+  return idx;
+}
+
+/** Transpose a single root note by semitones */
+function transposeRoot(root: string, semitones: number, useFlats: boolean): string {
+  const idx = findRootIndex(root);
+  if (idx === -1) return root;
+  const chromatic = useFlats ? CHROMATIC_FLAT : CHROMATIC_SHARP;
+  return chromatic[((idx + semitones) % 12 + 12) % 12];
+}
 
 /**
  * Transpose a single chord by a number of semitones.
  *
- * @param chord     - The chord string (e.g. "Am7", "C#sus4")
+ * @param chord     - The chord string (e.g. "Am7", "C#sus4", "G/B", "Cmaj7/E")
  * @param semitones - Number of semitones to transpose (positive = up, negative = down)
  * @param useFlats  - If true, prefer flat notation (e.g. Bb instead of A#)
  * @returns The transposed chord string
@@ -25,27 +40,17 @@ export function transposeChord(
   if (!match) return chord;
 
   const root = match[1];
-  const suffix = match[2];
+  const suffix = match[2] || '';
+  const bass = match[3];
 
-  const chromatic = useFlats ? CHROMATIC_FLAT : CHROMATIC_SHARP;
+  if (findRootIndex(root) === -1) return chord; // unrecognised root
 
-  // Also check flat chromatic for roots like "Bb" or "Db"
-  let rootIndex = chromatic.indexOf(root);
-  if (rootIndex === -1) {
-    // Root might be in the opposite notation — try both arrays
-    rootIndex = CHROMATIC_SHARP.indexOf(root);
-    if (rootIndex === -1) {
-      rootIndex = CHROMATIC_FLAT.indexOf(root);
-    }
-    if (rootIndex === -1) return chord; // unrecognised root
-  }
+  const newRoot = transposeRoot(root, semitones, useFlats);
 
-  // Calculate new index with wrap-around (handle negatives properly)
-  const newIndex =
-    ((rootIndex + semitones) % 12 + 12) % 12;
-  const newRoot = chromatic[newIndex];
+  // Transpose slash bass note too (e.g. G/B → A/C#)
+  const newBass = bass ? '/' + transposeRoot(bass, semitones, useFlats) : '';
 
-  return newRoot + suffix;
+  return newRoot + suffix + newBass;
 }
 
 /**
