@@ -1,102 +1,192 @@
-/** Layout — Split panel shell: minimal top bar (48px) with logo + nav tabs + outlet for page content.
- *  Responsive: hamburger + bottom tab bar on mobile, normal nav tabs on desktop.
+/** Layout — App shell: header nav + content outlet + mobile bottom tabs
+ *
+ * Design system (ported from ChordHub redesign):
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Kanit font for display/body, Source Code Pro for chords
+ * - Exponential ease-out motion curves only
  */
 
 import { Outlet, NavLink } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
+import { motion } from 'framer-motion'
 
-/** Nav tab button used in top bar (desktop) */
-function NavTab({ to, children }: { to: string; children: React.ReactNode }) {
+const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
+
+/** Desktop nav tab with icon */
+function NavTab({ to, children, icon }: { to: string; children: React.ReactNode; icon: React.ReactNode }) {
   return (
     <NavLink
       to={to}
       end
-      className={({ isActive }) =>
-        `px-3 py-1.5 text-xs rounded-md border transition-colors ${
-          isActive
-            ? 'bg-[rgba(62,207,142,0.1)] border-[rgba(62,207,142,0.3)] text-[#3ecf8e]'
-            : 'border-[#2e2e2e] text-[#b4b4b4] hover:border-[#363636] hover:text-[#fafafa]'
-        }`
-      }
+      className="flex items-center gap-2 text-sm font-medium transition-all duration-150 hover:text-[var(--fg-primary)]"
+      style={({ isActive }) => ({
+        background: isActive ? 'var(--accent-bg)' : 'transparent',
+        border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
+        color: isActive ? 'var(--accent)' : 'var(--fg-secondary)',
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--space-sm) var(--space-lg)',
+      })}
     >
+      <span className="w-[18px] h-[18px]" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       {children}
     </NavLink>
   )
 }
 
-/** Bottom tab bar item (mobile) */
-function BottomTab({ to, children, icon }: { to: string; children: React.ReactNode; icon: string }) {
+/** Mobile bottom tab */
+function BottomTab({ to, children, icon }: { to: string; children: React.ReactNode; icon: React.ReactNode }) {
   return (
     <NavLink
       to={to}
       end
-      className={({ isActive }) =>
-        `flex flex-col items-center justify-center gap-0.5 py-1 flex-1 transition-colors ${
-          isActive ? 'text-[#3ecf8e]' : 'text-[#898989]'
-        }`
-      }
+      className="flex flex-col items-center gap-1 p-2 min-w-[60px] text-xs transition-all duration-150"
+      style={({ isActive }) => ({
+        color: isActive ? 'var(--accent)' : 'var(--fg-secondary)',
+      })}
     >
-      <span className="text-lg leading-none">{icon}</span>
-      <span className="text-[10px] font-medium">{children}</span>
+      <span className="w-6 h-6" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+      {children}
     </NavLink>
   )
 }
 
-/** Root layout: 48px top bar + main content area via <Outlet /> */
+/** Root layout */
 export function Layout() {
-  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore()
+  const { sidebarOpen, setSidebarOpen } = useUIStore()
 
   return (
-    <div className="h-screen flex flex-col bg-[#0f0f0f]">
-      {/* Top bar — matches sketches/003-split-panel */}
-      <header className="h-12 flex items-center px-5 gap-4 shrink-0 bg-[#171717] border-b border-[#2e2e2e]">
-        {/* Logo */}
-        <div className="text-base font-semibold">
-          <span className="text-[#3ecf8e]">♫ Worship</span>
-          <span className="text-[#fafafa]">Team</span>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+      {/* Sticky Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: easeOutExpo }}
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+          background: 'oklch(0.15 0.01 240 / 0.95)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', maxWidth: 'var(--max-width)', margin: '0 auto' }}>
+          {/* Logo */}
+          <NavLink
+            to="/"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: '1.5rem',
+              color: 'var(--fg-primary)',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              padding: 'var(--space-sm)',
+              borderRadius: 'var(--radius-sm)',
+              transition: 'opacity 150ms ease',
+            }}
+          >
+            <span style={{ color: 'var(--accent)' }}>♫</span> Worship<span style={{ color: 'var(--accent)' }}>Team</span>
+          </NavLink>
+
+          {/* Nav — desktop */}
+          <nav className="hidden md:flex items-center gap-1">
+            <NavTab to="/" icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+            }>
+              Songs
+            </NavTab>
+            <NavTab to="/playlists" icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            }>
+              Playlists
+            </NavTab>
+            <NavTab to="/playlists?present=true" icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            }>
+              Present
+            </NavTab>
+          </nav>
         </div>
+      </motion.header>
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Hamburger button — mobile only */}
-        <button
-          onClick={toggleSidebar}
-          className="md:hidden w-8 h-8 flex items-center justify-center text-[#b4b4b4] hover:text-[#fafafa] rounded-md border border-[#2e2e2e] hover:border-[#363636] transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <line x1="3" y1="4.5" x2="15" y2="4.5" />
-            <line x1="3" y1="9" x2="15" y2="9" />
-            <line x1="3" y1="13.5" x2="15" y2="13.5" />
-          </svg>
-        </button>
-
-        {/* Nav tabs — desktop only */}
-        <nav className="hidden md:flex gap-2">
-          <NavTab to="/">Songs</NavTab>
-          <NavTab to="/playlists">Playlists</NavTab>
-          <NavTab to="/playlists?present=true">Present</NavTab>
-        </nav>
-      </header>
-
-      {/* Main content — pages render here, they handle their own split panels.
-          On mobile, clicking the main area closes the sidebar overlay. */}
+      {/* Main content */}
       <main
-        className="flex-1 flex overflow-hidden relative"
+        className="flex-1"
+        style={{ paddingTop: 'var(--space-3xl)', paddingBottom: 'var(--space-3xl)' }}
         onClick={() => {
           if (sidebarOpen) setSidebarOpen(false)
         }}
       >
-        <Outlet />
+        <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '0 var(--space-lg)', width: '100%' }}>
+          <Outlet />
+        </div>
       </main>
 
-      {/* Bottom tab bar — mobile only */}
-      <nav className="md:hidden flex items-center shrink-0 h-14 bg-[#171717] border-t border-[#2e2e2e]">
-        <BottomTab to="/" icon="♪">Songs</BottomTab>
-        <BottomTab to="/playlists" icon="☰">Playlists</BottomTab>
-        <BottomTab to="/playlists?present=true" icon="▶">Present</BottomTab>
-      </nav>
+      {/* Bottom tabs — mobile */}
+      <motion.nav
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: easeOutExpo }}
+        className="fixed bottom-0 left-0 right-0 md:hidden z-20"
+        style={{
+          background: 'oklch(0.15 0.01 240 / 0.95)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderTop: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-around', padding: 'var(--space-sm) 0' }}>
+          <BottomTab to="/" icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
+              <path d="M9 18V5l12-2v13"/>
+              <circle cx="6" cy="18" r="3"/>
+              <circle cx="18" cy="16" r="3"/>
+            </svg>
+          }>
+            Songs
+          </BottomTab>
+          <BottomTab to="/playlists" icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
+              <line x1="8" y1="6" x2="21" y2="6"/>
+              <line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/>
+              <line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          }>
+            Playlists
+          </BottomTab>
+          <BottomTab to="/playlists?present=true" icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          }>
+            Present
+          </BottomTab>
+        </div>
+      </motion.nav>
     </div>
   )
 }

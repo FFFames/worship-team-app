@@ -1,10 +1,16 @@
-/** PresentationControl — dual-screen control panel for live presentation.
- *  Left panel: song list with manual switching.
- *  Right panel: lyrics block preview + control buttons (welcome, black, video bg).
- *  Communicates with PresenterScreen via BroadcastChannel. */
+/** PresentationControl — Professional dual-screen control panel for live presentation
+ *
+ * Design system:
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Mobile-responsive with tab navigation
+ * - Three-column layout: songs (264px) | slides (flex) | controls (320px)
+ * - Kanit font for display/body, Source Code Pro for chords
+ * - Exponential ease-out motion curves only
+ */
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { useVideoBackgrounds } from '../hooks/useVideoBackgrounds'
 import { parseChordLyrics } from '../utils/chordParser'
@@ -15,7 +21,7 @@ import {
 } from '../utils/presentationChannel'
 import type { Section } from '../types/database'
 
-/** Split a section's lyrics into "blocks" of 2–3 sentences for presentation pages */
+/** Split a section's lyrics into "blocks" for presentation pages */
 function sectionToBlocks(section: Section, _transpose: number): string[][] {
   void _transpose
   const lyricLines = section.lines
@@ -37,11 +43,14 @@ function sectionToBlocks(section: Section, _transpose: number): string[][] {
 
 export default function PresentationControl() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { playlist, songs, loading, error } = usePlaylist(id)
   const { backgrounds } = useVideoBackgrounds()
   const store = usePresentationStore()
   const channelRef = useRef<ReturnType<typeof createControlChannel> | null>(null)
-  const [mobileTab, setMobileTab] = useState<'songs' | 'lyrics' | 'controls'>('songs')
+
+  // Mobile tab state
+  const [activeTab, setActiveTab] = useState<'songs' | 'lyrics' | 'controls'>('lyrics')
 
   // Build all lyric blocks for current song
   const currentSong = songs[store.currentSongIndex]
@@ -85,7 +94,7 @@ export default function PresentationControl() {
     (index: number) => {
       store.setSongIndex(index)
       store.setBlockIndex(0)
-      // Send first block
+      setActiveTab('lyrics')
       const song = songs[index]
       if (song?.song) {
         const sections = song.song?.raw_content
@@ -116,7 +125,30 @@ export default function PresentationControl() {
     [allBlocks, store, send],
   )
 
-  // Welcome / Black / Background
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        navigate('/playlists')
+      } else if (e.key === 'ArrowRight') {
+        const nextBlock = Math.min(store.currentBlockIndex + 1, allBlocks.length - 1)
+        if (nextBlock !== store.currentBlockIndex) {
+          selectBlock(nextBlock)
+        }
+      } else if (e.key === 'ArrowLeft') {
+        const prevBlock = Math.max(store.currentBlockIndex - 1, 0)
+        if (prevBlock !== store.currentBlockIndex) {
+          selectBlock(prevBlock)
+        }
+      } else if (e.key === 'p' || e.key === 'P') {
+        openPresenter()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [store.currentBlockIndex, allBlocks.length, selectBlock, openPresenter, navigate])
+
+  // Welcome / Black
   const showWelcome = useCallback(() => {
     store.showWelcome()
     send({ type: 'SHOW_WELCOME', background: store.videoBackground?.url })
@@ -125,7 +157,7 @@ export default function PresentationControl() {
   const showBlack = useCallback(() => {
     store.showBlack()
     send({ type: 'SHOW_BLACK' })
-  }, [store, send])
+  }, [send])
 
   const changeBackground = useCallback(
     (url: string) => {
@@ -138,180 +170,354 @@ export default function PresentationControl() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-[#2e2e2e] border-t-[#3ecf8e] rounded-full animate-spin" />
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <div className="spinner" />
       </div>
     )
   }
 
   if (error || !playlist) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-sm mb-3">{error ?? 'Playlist not found'}</p>
-          <Link to="/playlists" className="text-[#3ecf8e] text-xs hover:underline">
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: '0.875rem', marginBottom: 'var(--space-md)', color: 'var(--status-error-text)' }}>{error ?? 'Playlist not found'}</p>
+          <button
+            onClick={() => navigate('/playlists')}
+            style={{ fontSize: '0.75rem', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)', textDecoration: 'underline' }}
+          >
             ← Back to playlists
-          </Link>
+          </button>
         </div>
       </div>
     )
   }
 
+  const currentSectionName = allBlocks[store.currentBlockIndex]?.sectionType ?? 'Select a slide'
+
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {/* Mobile tab bar */}
-      <div className="md:hidden flex border-b border-[#2e2e2e] bg-[#141414]">
-        {(['songs', 'lyrics', 'controls'] as const).map((tab) => (
+    <main style={{ display: 'flex', flex: 1, overflow: 'hidden', margin: 'calc(var(--space-3xl) * -1) calc(var(--space-lg) * -1)' }}>
+      <div style={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+        {/* Mobile Tab Navigation - hidden on desktop */}
+        <div className="flex md:hidden" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}>
           <button
-            key={tab}
-            onClick={() => setMobileTab(tab)}
-            className={`flex-1 px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors ${
-              mobileTab === tab
-                ? 'text-[#3ecf8e] border-b-2 border-[#3ecf8e]'
-                : 'text-[#898989] hover:text-[#fafafa]'
-            }`}
+            onClick={() => setActiveTab('songs')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              fontSize: '12px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              transition: 'color 150ms var(--ease-out)',
+              color: activeTab === 'songs' ? 'var(--accent)' : 'var(--fg-tertiary)',
+              borderBottom: activeTab === 'songs' ? '2px solid var(--accent)' : 'none',
+            }}
           >
-            {tab === 'songs' ? 'Songs' : tab === 'lyrics' ? 'Lyrics' : 'Controls'}
+            Songs
           </button>
-        ))}
-      </div>
-
-      <div className="flex-1 flex min-h-0">
-        {/* Left panel — song list */}
-        <div className={`w-full flex flex-col border-r border-[#2e2e2e] bg-[#141414] ${mobileTab === 'songs' ? '' : 'hidden'} md:flex md:w-64 md:shrink-0`}>
-          <div className="px-4 py-3 border-b border-[#2e2e2e]">
-            <h3 className="text-xs font-medium text-[#898989] uppercase tracking-wider">Songs</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {songs.map((ps, idx) => {
-              const song = ps.song
-              if (!song) return null
-              return (
-                <button
-                  key={ps.id}
-                  onClick={() => { selectSong(idx); setMobileTab('lyrics') }}
-                  className={`w-full text-left px-4 py-3 border-b border-[#1e1e1e] text-sm transition-colors ${
-                    idx === store.currentSongIndex
-                      ? 'bg-[rgba(62,207,142,0.08)] border-l-2 border-l-[#3ecf8e]'
-                      : 'border-l-2 border-l-transparent hover:bg-[#1a1a1a]'
-                  }`}
-                >
-                  <div className="text-[#fafafa] font-medium truncate">{song.title}</div>
-                  <div className="text-xs text-[#898989] mt-0.5">{song.artist ?? 'Unknown'}</div>
-                </button>
-              )
-            })}
-          </div>
+          <button
+            onClick={() => setActiveTab('lyrics')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              fontSize: '12px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              transition: 'color 150ms var(--ease-out)',
+              color: activeTab === 'lyrics' ? 'var(--accent)' : 'var(--fg-tertiary)',
+              borderBottom: activeTab === 'lyrics' ? '2px solid var(--accent)' : 'none',
+            }}
+          >
+            Lyrics
+          </button>
+          <button
+            onClick={() => setActiveTab('controls')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              fontSize: '12px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              transition: 'color 150ms var(--ease-out)',
+              color: activeTab === 'controls' ? 'var(--accent)' : 'var(--fg-tertiary)',
+              borderBottom: activeTab === 'controls' ? '2px solid var(--accent)' : 'none',
+            }}
+          >
+            Controls
+          </button>
         </div>
 
-        {/* Center panel — lyrics blocks */}
-        <div className={`w-full flex flex-col min-w-0 ${mobileTab === 'lyrics' ? '' : 'hidden'} md:flex md:flex-1`}>
-          <div className="px-6 py-3 border-b border-[#2e2e2e] flex items-center justify-between">
-            <span className="text-sm font-medium text-[#fafafa] truncate">
-              {currentSong?.song?.title ?? 'Select a song'}
-            </span>
-            <button
-              onClick={openPresenter}
-              className="px-3 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-xs font-medium hover:bg-[#2db87a] transition-colors"
-            >
-              Open Presenter
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid grid-cols-2 gap-4">
-              {allBlocks.map((block, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => selectBlock(idx)}
-                  className={`text-left p-4 rounded-lg border transition-colors ${
-                    idx === store.currentBlockIndex
-                      ? 'border-[#3ecf8e] bg-[rgba(62,207,142,0.08)]'
-                      : 'border-[#2e2e2e] hover:border-[#363636]'
-                  }`}
-                >
-                  <div className="text-xs text-[#898989] mb-2 uppercase">{block.sectionType}</div>
-                  {block.lines.map((line, li) => (
-                    <div key={li} className="text-sm text-[#fafafa] leading-relaxed">
-                      {line}
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          {/* Left Panel - Songs List */}
+          <div
+            className={activeTab !== 'songs' ? 'hidden md:flex md:w-64 md:shrink-0' : 'md:flex md:w-64 md:shrink-0'}
+            style={{ flexDirection: 'column', borderRight: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}
+          >
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: 'var(--fg-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                Songs
+              </h3>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {songs.map((ps, idx) => {
+                const song = ps.song
+                if (!song) return null
+                return (
+                  <button
+                    key={ps.id}
+                    onClick={() => selectSong(idx)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      fontSize: '14px',
+                      transition: 'background 150ms var(--ease-out)',
+                      borderLeft: '2px solid transparent',
+                      background: idx === store.currentSongIndex ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
+                      borderLeftColor: idx === store.currentSongIndex ? 'var(--accent)' : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (idx !== store.currentSongIndex) {
+                        e.currentTarget.style.background = 'var(--bg-tertiary)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (idx !== store.currentSongIndex) {
+                        e.currentTarget.style.background = 'transparent'
+                      }
+                    }}
+                  >
+                    <div style={{
+                      color: 'var(--fg-primary)',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {song.title}
                     </div>
-                  ))}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right panel — preview + controls */}
-        <div className={`w-full flex flex-col border-l border-[#2e2e2e] bg-[#141414] ${mobileTab === 'controls' ? '' : 'hidden'} md:flex md:w-80 md:shrink-0`}>
-          {/* Preview of what's on screen */}
-          <div className="flex-1 p-4">
-            <div className="text-xs text-[#898989] uppercase mb-3">Display Preview</div>
-            <div className="aspect-video bg-black rounded-lg flex items-center justify-center overflow-hidden">
-              {store.isBlacked ? (
-                <div className="w-full h-full bg-black" />
-              ) : store.isShowingWelcome ? (
-                <div className="text-center">
-                  <div className="text-2xl text-[#fafafa]">♫</div>
-                  <div className="text-sm text-[#b4b4b4] mt-2">Welcome</div>
-                </div>
-              ) : allBlocks[store.currentBlockIndex] ? (
-                <div className="text-center px-4">
-                  {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
-                    <div key={i} className="text-white text-sm leading-relaxed">
-                      {line}
+                    <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)', marginTop: '2px' }}>
+                      {song.artist ?? 'Unknown'}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-[#898989]">No content</div>
-              )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* Control buttons */}
-          <div className="p-4 border-t border-[#2e2e2e] space-y-3">
-            <div className="flex gap-2">
+          {/* Center Panel - Lyrics Grid */}
+          <div
+            className={activeTab !== 'lyrics' ? 'hidden md:flex md:flex-1' : 'md:flex md:flex-1'}
+            style={{ flexDirection: 'column', minWidth: 0 }}
+          >
+            <div style={{
+              padding: '12px 24px',
+              borderBottom: '1px solid var(--border-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'var(--fg-primary)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {currentSong?.song?.title ?? 'Select a song'}
+              </span>
               <button
-                onClick={showWelcome}
-                className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
-                  store.isShowingWelcome
-                    ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
-                    : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
-                }`}
+                onClick={openPresenter}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '9999px',
+                  background: 'var(--accent)',
+                  color: 'var(--bg-primary)',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 150ms var(--ease-out)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'oklch(0.65 0.15 160)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--accent)'}
               >
-                Welcome
-              </button>
-              <button
-                onClick={showBlack}
-                className={`flex-1 px-3 py-2 rounded text-xs border transition-colors ${
-                  store.isBlacked
-                    ? 'border-[#3ecf8e] text-[#3ecf8e] bg-[rgba(62,207,142,0.1)]'
-                    : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
-                }`}
-              >
-                Black
+                Open Presenter
               </button>
             </div>
-
-            {/* Video background dropdown */}
-            <div>
-              <label className="block text-xs text-[#898989] mb-1">Video Background</label>
-              <select
-                value={store.videoBackground?.url ?? ''}
-                onChange={(e) => changeBackground(e.target.value)}
-                className="w-full px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-xs text-[#fafafa] focus:outline-none focus:border-[#3ecf8e]"
-              >
-                <option value="">None</option>
-                {backgrounds.map((bg) => (
-                  <option key={bg.id} value={bg.url}>
-                    {bg.name}
-                  </option>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                {allBlocks.map((block, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => selectBlock(idx)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      border: '2px solid',
+                      transition: 'all 150ms var(--ease-out)',
+                      borderColor: idx === store.currentBlockIndex ? 'var(--accent)' : 'var(--border-subtle)',
+                      background: idx === store.currentBlockIndex ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (idx !== store.currentBlockIndex) {
+                        e.currentTarget.style.borderColor = 'var(--border-default)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (idx !== store.currentBlockIndex) {
+                        e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                      }
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                      {block.sectionType}
+                    </div>
+                    {block.lines.map((line, li) => (
+                      <div key={li} style={{
+                        fontSize: '14px',
+                        color: 'var(--fg-primary)',
+                        lineHeight: 1.6
+                      }}>
+                        {line}
+                      </div>
+                    ))}
+                  </button>
                 ))}
-              </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - Controls & Preview */}
+          <div
+            className={activeTab !== 'controls' ? 'hidden md:flex md:w-80 md:shrink-0' : 'md:flex md:w-80 md:shrink-0'}
+            style={{ flexDirection: 'column', borderLeft: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}
+          >
+            <div style={{ flex: 1, padding: '16px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)', textTransform: 'uppercase', marginBottom: '12px' }}>
+                Display Preview
+              </div>
+              <div style={{
+                aspectRatio: '16 / 9',
+                background: 'black',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden'
+              }}>
+                {store.isBlacked ? (
+                  <div style={{ width: '100%', height: '100%', background: 'black' }} />
+                ) : store.isShowingWelcome ? (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>♫</div>
+                    <div style={{ fontSize: '14px', color: 'var(--fg-secondary)' }}>Welcome</div>
+                  </div>
+                ) : allBlocks[store.currentBlockIndex] ? (
+                  <div style={{ textAlign: 'center', padding: '16px' }}>
+                    {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
+                      <div key={i} style={{
+                        fontSize: '14px',
+                        color: 'white',
+                        lineHeight: 1.6
+                      }}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)' }}>No content</div>
+                )}
+              </div>
+
+              {/* Controls - moved under preview */}
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                  <button
+                    onClick={showWelcome}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--fg-secondary)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      transition: 'all 150ms var(--ease-out)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--fg-primary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--fg-secondary)'}
+                  >
+                    Welcome
+                  </button>
+                  <button
+                    onClick={showBlack}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--fg-secondary)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      transition: 'all 150ms var(--ease-out)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--fg-primary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--fg-secondary)'}
+                  >
+                    Black
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--fg-tertiary)', marginBottom: '4px' }}>
+                    Video Background
+                  </label>
+                  <select
+                    value={store.videoBackground?.url ?? ''}
+                    onChange={(e) => changeBackground(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-subtle)',
+                      fontSize: '12px',
+                      color: 'var(--fg-primary)'
+                    }}
+                  >
+                    <option value="">None</option>
+                    {backgrounds.map((bg) => (
+                      <option key={bg.id} value={bg.url}>
+                        {bg.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--fg-tertiary)' }}>
+                  <span>{store.currentSongIndex + 1}/{songs.length}</span>
+                  <span>•</span>
+                  <span>{currentSectionName}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

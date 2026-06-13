@@ -1,8 +1,19 @@
-/** PlaylistList — playlist management page with sidebar list and inline detail view */
+/** PlaylistList — Playlist management page with sidebar list and inline detail view
+ *
+ * Design system:
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Balanced, centered layouts (NEVER left-leaning)
+ * - Kanit font for display/body, Source Code Pro for chords
+ * - Exponential ease-out motion curves only
+ */
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlaylists } from '../hooks/usePlaylists'
+import { motion, AnimatePresence } from 'framer-motion'
+
+const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 export default function PlaylistList() {
   const { playlists, loading, error, createPlaylist, deletePlaylist } = usePlaylists()
@@ -34,128 +45,184 @@ export default function PlaylistList() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
+    <div className="flex flex-col md:flex-row h-full" style={{ background: 'var(--bg-primary)' }}>
       {/* ── Mobile: Full-width playlist card list (< md) ── */}
       <div className="flex-1 flex flex-col md:hidden">
         {/* Mobile header */}
-        <div className="px-4 py-4 border-b border-[#2e2e2e] flex items-center justify-between">
-          <span className="text-[13px] font-medium text-[#898989] uppercase tracking-wider">
-            {loading ? 'Loading...' : `${playlists.length} Playlist${playlists.length !== 1 ? 's' : ''}`}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
+            {loading ? 'กำลังโหลด...' : `${playlists.length} เพลย์ลิสต์`}
           </span>
           <button
             onClick={() => setCreating(true)}
-            className="w-7 h-7 rounded-md border border-[#2e2e2e] text-[#b4b4b4] text-sm flex items-center justify-center hover:bg-[#242424] transition-colors"
-            title="New Playlist"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '1.125rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--fg-secondary)',
+              background: 'transparent',
+              cursor: 'pointer',
+              transition: 'all 200ms var(--ease-out)',
+            }}
+            title="เพิ่มเพลย์ลิสต์"
           >
             +
           </button>
         </div>
 
         {/* Mobile inline create input */}
-        {creating && (
-          <div className="px-4 py-3 border-b border-[#2e2e2e]">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate()
-                if (e.key === 'Escape') { setCreating(false); setNewName('') }
-              }}
-              placeholder="Playlist name..."
-              autoFocus
-              className="w-full px-2.5 py-1.5 text-sm bg-[#1a1a1a] border border-[#3ecf8e] rounded-md text-[#fafafa] placeholder:text-[#898989] outline-none"
-            />
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={handleCreate}
-                className="px-3 py-1 text-xs font-medium rounded-full bg-[#3ecf8e] text-[#0f0f0f] hover:bg-[#2db87a] transition-colors"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => { setCreating(false); setNewName('') }}
-                className="px-3 py-1 text-xs font-medium rounded-md border border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa] transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {creating && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: easeOutExpo }}
+              style={{ padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)', overflow: 'hidden' }}
+            >
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate()
+                  if (e.key === 'Escape') { setCreating(false); setNewName('') }
+                }}
+                placeholder="ชื่อเพลย์ลิสต์..."
+                autoFocus
+                className="input-field"
+              />
+              <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
+                <button
+                  onClick={handleCreate}
+                  className="btn-primary"
+                  style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.75rem' }}
+                >
+                  สร้าง
+                </button>
+                <button
+                  onClick={() => { setCreating(false); setNewName('') }}
+                  className="btn-secondary"
+                  style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.75rem' }}
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Mobile playlist cards */}
-        <div className="flex-1 overflow-y-auto">
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {error && (
-            <div className="px-4 py-3 text-center text-red-400 text-sm">{error}</div>
+            <div style={{ padding: 'var(--space-md) var(--space-lg)', textAlign: 'center', fontSize: '0.875rem', color: 'var(--status-error-text)' }}>{error}</div>
           )}
 
           {!loading && !error && playlists.length === 0 && (
-            <div className="flex items-center justify-center py-16">
-              <div className="text-center">
-                <div className="text-4xl mb-3">🎶</div>
-                <p className="text-[#898989] text-sm">No playlists yet</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4xl) 0' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-md)' }}>🎶</div>
+                <p style={{ fontSize: '0.9375rem', color: 'var(--fg-secondary)' }}>ยังไม่มีเพลย์ลิสต์</p>
                 <button
                   onClick={() => setCreating(true)}
-                  className="mt-3 px-4 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:bg-[#2db87a] transition-colors"
+                  className="btn-primary"
+                  style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem' }}
                 >
-                  + New Playlist
+                  + เพิ่มเพลย์ลิสต์
                 </button>
               </div>
             </div>
           )}
 
-          {playlists.map((pl) => {
+          {playlists.map((pl, index) => {
             const isConfirming = pl.id === confirmDeleteId
 
             return (
-              <div
+              <motion.div
                 key={pl.id}
-                className="border-b border-[#1e1e1e] hover:bg-[#1a1a1a] transition-colors"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, ease: easeOutExpo }}
+                style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
                 <button
                   onClick={() => {
                     navigate(`/playlists/${pl.id}`)
                     setConfirmDeleteId(null)
                   }}
-                  className="w-full text-left px-4 py-3 cursor-pointer"
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: 'var(--space-md) var(--space-lg)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--fg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 200ms var(--ease-out)',
+                    fontFamily: 'var(--font-body)',
+                  }}
                 >
-                  <div className="text-sm font-medium text-[#fafafa] truncate">
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
                     {pl.name}
                   </div>
-                  <div className="text-xs text-[#898989] mt-0.5">
-                    {pl.notes?.slice(0, 60) || 'No description'}
+                  <div style={{ fontSize: '0.875rem', marginTop: '0.125rem', color: 'var(--fg-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pl.notes?.slice(0, 60) || 'ไม่มีคำอธิบาย'}
                   </div>
                 </button>
 
                 {/* Delete confirmation / button */}
-                <div className="px-4 pb-2 flex justify-end">
+                <div style={{ padding: '0 var(--space-lg) var(--space-sm)', display: 'flex', justifyContent: 'flex-end' }}>
                   {isConfirming ? (
-                    <div className="flex gap-1.5 items-center">
-                      <span className="text-xs text-red-400">Delete?</span>
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--status-error-text)' }}>ลบ?</span>
                       <button
                         onClick={() => handleDelete(pl.id)}
-                        className="px-2 py-0.5 text-xs rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                        style={{
+                          padding: 'var(--space-xs) var(--space-sm)',
+                          fontSize: '0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--status-error-bg)',
+                          color: 'var(--status-error-text)',
+                          border: '1px solid var(--status-error-border)',
+                          cursor: 'pointer',
+                          transition: 'all 200ms var(--ease-out)',
+                          fontFamily: 'var(--font-display)',
+                        }}
                       >
-                        Yes
+                        ใช่
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="px-2 py-0.5 text-xs rounded border border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa] transition-colors"
+                        className="btn-secondary"
+                        style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: '0.75rem' }}
                       >
-                        No
+                        ไม่
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmDeleteId(pl.id)}
-                      className="text-xs text-[#898989] hover:text-red-400 transition-colors"
-                      title="Delete playlist"
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--fg-tertiary)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'color 150ms var(--ease-out)',
+                        fontFamily: 'var(--font-display)',
+                      }}
+                      title="ลบเพลย์ลิสต์"
                     >
-                      Delete
+                      ลบ
                     </button>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
@@ -163,117 +230,172 @@ export default function PlaylistList() {
 
       {/* ── Desktop: Sidebar + empty state (md+) ── */}
       {/* Left sidebar — playlist list */}
-      <div className="hidden md:flex w-80 flex-shrink-0 bg-[#141414] border-r border-[#2e2e2e] flex-col">
+      <div className="hidden md:flex flex-col" style={{ width: 320, flexShrink: 0, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}>
         {/* Header */}
-        <div className="px-4 py-4 border-b border-[#2e2e2e] flex items-center justify-between">
-          <span className="text-[13px] font-medium text-[#898989] uppercase tracking-wider">
-            {loading ? 'Loading...' : `${playlists.length} Playlist${playlists.length !== 1 ? 's' : ''}`}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
+            {loading ? 'กำลังโหลด...' : `${playlists.length} เพลย์ลิสต์`}
           </span>
           <button
             onClick={() => setCreating(true)}
-            className="w-7 h-7 rounded-md border border-[#2e2e2e] text-[#b4b4b4] text-sm flex items-center justify-center hover:bg-[#242424] transition-colors"
-            title="New Playlist"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '1.125rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--fg-secondary)',
+              background: 'transparent',
+              cursor: 'pointer',
+              transition: 'all 200ms var(--ease-out)',
+            }}
+            title="เพิ่มเพลย์ลิสต์"
           >
             +
           </button>
         </div>
 
         {/* Inline create input */}
-        {creating && (
-          <div className="px-4 py-3 border-b border-[#2e2e2e]">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate()
-                if (e.key === 'Escape') { setCreating(false); setNewName('') }
-              }}
-              placeholder="Playlist name..."
-              autoFocus
-              className="w-full px-2.5 py-1.5 text-sm bg-[#1a1a1a] border border-[#3ecf8e] rounded-md text-[#fafafa] placeholder:text-[#898989] outline-none"
-            />
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={handleCreate}
-                className="px-3 py-1 text-xs font-medium rounded-full bg-[#3ecf8e] text-[#0f0f0f] hover:bg-[#2db87a] transition-colors"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => { setCreating(false); setNewName('') }}
-                className="px-3 py-1 text-xs font-medium rounded-md border border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa] transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {creating && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: easeOutExpo }}
+              style={{ padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)', overflow: 'hidden' }}
+            >
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate()
+                  if (e.key === 'Escape') { setCreating(false); setNewName('') }
+                }}
+                placeholder="ชื่อเพลย์ลิสต์..."
+                autoFocus
+                className="input-field"
+              />
+              <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
+                <button
+                  onClick={handleCreate}
+                  className="btn-primary"
+                  style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.75rem' }}
+                >
+                  สร้าง
+                </button>
+                <button
+                  onClick={() => { setCreating(false); setNewName('') }}
+                  className="btn-secondary"
+                  style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.75rem' }}
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Playlist list */}
-        <div className="flex-1 overflow-y-auto">
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {error && (
-            <div className="px-4 py-3 text-center text-red-400 text-sm">{error}</div>
+            <div style={{ padding: 'var(--space-md) var(--space-lg)', textAlign: 'center', fontSize: '0.875rem', color: 'var(--status-error-text)' }}>{error}</div>
           )}
 
           {!loading && !error && playlists.length === 0 && (
-            <div className="px-4 py-8 text-center text-xs text-[#898989]">
-              No playlists yet. Create one to get started.
+            <div style={{ padding: 'var(--space-lg)', textAlign: 'center', fontSize: '0.875rem', color: 'var(--fg-tertiary)' }}>
+              ยังไม่มีเพลย์ลิสต์ สร้างหนึ่งรายการเพื่อเริ่มต้น
             </div>
           )}
 
-          {playlists.map((pl) => {
+          {playlists.map((pl, index) => {
             const isConfirming = pl.id === confirmDeleteId
 
             return (
-              <div
+              <motion.div
                 key={pl.id}
-                className={`border-b border-[#1e1e1e] border-l-2 border-l-transparent hover:bg-[#1a1a1a] transition-colors`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05, ease: easeOutExpo }}
+                style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
                 <button
                   onClick={() => {
                     navigate(`/playlists/${pl.id}`)
                     setConfirmDeleteId(null)
                   }}
-                  className="w-full text-left px-4 py-3 cursor-pointer"
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: 'var(--space-md) var(--space-lg)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--fg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 200ms var(--ease-out)',
+                    fontFamily: 'var(--font-body)',
+                  }}
                 >
-                  <div className="text-sm font-medium text-[#fafafa] truncate">
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
                     {pl.name}
                   </div>
-                  <div className="text-xs text-[#898989] mt-0.5">
-                    {pl.notes?.slice(0, 60) || 'No description'}
+                  <div style={{ fontSize: '0.875rem', marginTop: '0.125rem', color: 'var(--fg-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pl.notes?.slice(0, 60) || 'ไม่มีคำอธิบาย'}
                   </div>
                 </button>
 
                 {/* Delete confirmation / button */}
-                <div className="px-4 pb-2 flex justify-end">
+                <div style={{ padding: '0 var(--space-lg) var(--space-sm)', display: 'flex', justifyContent: 'flex-end' }}>
                   {isConfirming ? (
-                    <div className="flex gap-1.5 items-center">
-                      <span className="text-xs text-red-400">Delete?</span>
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--status-error-text)' }}>ลบ?</span>
                       <button
                         onClick={() => handleDelete(pl.id)}
-                        className="px-2 py-0.5 text-xs rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                        style={{
+                          padding: 'var(--space-xs) var(--space-sm)',
+                          fontSize: '0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--status-error-bg)',
+                          color: 'var(--status-error-text)',
+                          border: '1px solid var(--status-error-border)',
+                          cursor: 'pointer',
+                          transition: 'all 200ms var(--ease-out)',
+                          fontFamily: 'var(--font-display)',
+                        }}
                       >
-                        Yes
+                        ใช่
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="px-2 py-0.5 text-xs rounded border border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa] transition-colors"
+                        className="btn-secondary"
+                        style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: '0.75rem' }}
                       >
-                        No
+                        ไม่
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmDeleteId(pl.id)}
-                      className="text-xs text-[#898989] hover:text-red-400 transition-colors"
-                      title="Delete playlist"
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--fg-tertiary)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'color 150ms var(--ease-out)',
+                        fontFamily: 'var(--font-display)',
+                      }}
+                      title="ลบเพลย์ลิสต์"
                     >
-                      Delete
+                      ลบ
                     </button>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
@@ -281,16 +403,17 @@ export default function PlaylistList() {
 
       {/* Right panel — empty state (desktop only) */}
       <div className="hidden md:flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-3">🎶</div>
-          <p className="text-[#898989] text-sm">
-            Select a playlist from the sidebar to manage it
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-md)' }}>🎶</div>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--fg-secondary)' }}>
+            เลือกเพลย์ลิสต์จากรายการเพื่อจัดการ
           </p>
           <button
             onClick={() => setCreating(true)}
-            className="mt-4 px-4 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:bg-[#2db87a] transition-colors"
+            className="btn-primary"
+            style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem' }}
           >
-            + New Playlist
+            + เพิ่มเพลย์ลิสต์
           </button>
         </div>
       </div>

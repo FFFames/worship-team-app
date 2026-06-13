@@ -1,4 +1,12 @@
-/** SongEditor — create or edit a song with raw text input, parse, live preview, and draggable chord aligner */
+/** SongEditor — Create or edit a song with raw text input, parse, live preview, and draggable chord aligner
+ *
+ * Design system:
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Balanced, centered layouts (NEVER left-leaning)
+ * - Kanit font for display/body, Source Code Pro for chords
+ * - Exponential ease-out motion curves only
+ */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -7,6 +15,9 @@ import { useSong } from '../hooks/useSongs'
 import { useSongs } from '../hooks/useSongs'
 import { parseChordLyrics, detectKey } from '../utils/chordParser'
 import type { SongLine } from '../types/database'
+import { motion, AnimatePresence } from 'framer-motion'
+
+const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 /** All keys for dropdown */
 const KEY_OPTIONS = [
@@ -24,7 +35,6 @@ interface ChordToken {
 /** Parse a chord line string into individual chord tokens with positions */
 function tokenizeChordLine(line: string): ChordToken[] {
   const tokens: ChordToken[] = []
-  // Match chord patterns at their positions in the string
   const regex = /([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|7|9|11|13|6|2|4|5|°|ø)?(?:\/[A-G][#b]?)?)/g
   let match: RegExpExecArray | null
   while ((match = regex.exec(line)) !== null) {
@@ -74,14 +84,12 @@ function DraggableChordLine({
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!dragRef.current || !containerRef.current) return
-        // Approximate character width (monospace)
         const charWidth = 8.4
         const dx = ev.clientX - dragRef.current.startX
         const charDelta = Math.round(dx / charWidth)
         const newPos = Math.max(0, dragRef.current.startPos + charDelta)
 
         const updated = tokens.map((t, i) => (i === dragRef.current!.tokenIndex ? { ...t, pos: newPos } : t))
-        // Enforce ordering
         for (let i = 1; i < updated.length; i++) {
           const minPos = updated[i - 1].pos + updated[i - 1].chord.length + 1
           if (updated[i].pos < minPos) {
@@ -110,9 +118,6 @@ function DraggableChordLine({
       const startY = touch.clientY
       const startPos = tokens[tokenIndex].pos
 
-      // Start in "pending" mode — don't steal the touch yet.
-      // Only lock into drag mode once finger moves >8px horizontally.
-      // If it moves >8px vertically first, cancel (it's a scroll).
       let dragLocked = false
       let cancelled = false
 
@@ -128,24 +133,17 @@ function DraggableChordLine({
         const dx = ev.touches[0].clientX - startX
         const dy = ev.touches[0].clientY - startY
 
-        // Not yet decided if this is a drag or a scroll
         if (!dragLocked) {
           if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
-            // Vertical scroll intent — cancel drag, let scroll happen
             cancelled = true
             dragRef.current = null
-            cleanup()
             return
           }
           if (Math.abs(dx) > 8) {
-            // Horizontal drag intent — lock in
             dragLocked = true
-            ev.preventDefault()
           } else {
-            return // Still ambiguous, wait
+            return
           }
-        } else {
-          ev.preventDefault()
         }
 
         if (!dragRef.current || !containerRef.current) return
@@ -166,25 +164,20 @@ function DraggableChordLine({
       const cleanup = () => {
         dragRef.current = null
         window.removeEventListener('touchmove', handleTouchMove)
-        window.removeEventListener('touchend', handleTouchEnd)
-      }
-
-      const handleTouchEnd = () => {
-        cleanup()
+        window.removeEventListener('touchend', cleanup)
       }
 
       window.addEventListener('touchmove', handleTouchMove, { passive: false })
-      window.addEventListener('touchend', handleTouchEnd)
+      window.addEventListener('touchend', cleanup)
     },
     [tokens, sectionIndex, lineIndex, onChordMove]
   )
 
   if (tokens.length === 0) {
-    // No chords to drag — render static
     return (
       <>
         {line.chords && (
-          <div className="font-mono text-sm leading-tight text-[#3ecf8e] whitespace-pre">
+          <div className="font-mono text-sm leading-tight whitespace-pre" style={{ color: 'var(--accent)' }}>
             {line.chords}
           </div>
         )}
@@ -192,7 +185,6 @@ function DraggableChordLine({
     )
   }
 
-  // Build positioned chord spans
   const lastToken = tokens[tokens.length - 1]
   const totalWidth = lastToken.pos + lastToken.chord.length
 
@@ -202,17 +194,16 @@ function DraggableChordLine({
         {tokens.map((token, ti) => (
           <span
             key={ti}
-            className="absolute text-[#3ecf8e] cursor-grab active:cursor-grabbing hover:text-[#5eeaa8] transition-colors"
-            style={{ left: `${token.pos}ch` }}
+            className="absolute cursor-grab active:cursor-grabbing transition-colors"
+            style={{ left: `${token.pos}ch`, color: 'var(--accent)' }}
             onMouseDown={(e) => handleMouseDown(ti, e)}
             onTouchStart={(e) => handleTouchStart(ti, e)}
-            title="Drag to adjust position"
+            title="ลากเพื่อปรับตำแหน่ง"
           >
             {token.chord}
           </span>
         ))}
-        {/* Invisible spacer to maintain line height */}
-        {'\u00A0'}
+        {' '}
       </div>
     </>
   )
@@ -246,7 +237,6 @@ export default function SongEditor() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Load existing song in edit mode
   useEffect(() => {
     if (isEditing && id) {
       setEditingSongId(id)
@@ -256,14 +246,12 @@ export default function SongEditor() {
     }
   }, [id, isEditing, setEditingSongId, reset])
 
-  // Populate form when song loads in edit mode
   useEffect(() => {
     if (song && isEditing && editingSongId === song.id) {
       setTitle(song.title)
       setArtist(song.artist ?? '')
       setSelectedKey(song.original_key)
       setRawText(song.raw_content)
-      // Auto-parse on load
       const content = parseChordLyrics(song.raw_content)
       setParsedContent(content)
       const key = detectKey(content.sections)
@@ -271,14 +259,12 @@ export default function SongEditor() {
     }
   }, [song, isEditing, editingSongId, setRawText, setParsedContent, setDetectedKey])
 
-  // Sync detected key to selected key (new song mode only)
   useEffect(() => {
     if (detectedKey && !isEditing) {
       setSelectedKey(detectedKey)
     }
   }, [detectedKey, isEditing])
 
-  // Parse raw text into structured content
   const handleParse = useCallback(() => {
     const content = parseChordLyrics(rawText)
     setParsedContent(content)
@@ -289,7 +275,6 @@ export default function SongEditor() {
     }
   }, [rawText, setParsedContent, setDetectedKey, isEditing])
 
-  // Handle chord drag — update the chord string in parsed content
   const handleChordMove = useCallback(
     (sectionIndex: number, lineIndex: number, tokens: ChordToken[]) => {
       if (!parsedContent) return
@@ -308,18 +293,16 @@ export default function SongEditor() {
     [parsedContent, setParsedContent]
   )
 
-  // Save song (create or update)
   const handleSave = async () => {
     if (!title.trim()) {
-      setSaveError('Title is required')
+      setSaveError('กรุณาใส่ชื่อเพลง')
       return
     }
     if (!rawText.trim()) {
-      setSaveError('Song content is required')
+      setSaveError('กรุณาใส่เนื้อเพลง')
       return
     }
 
-    // Parse content if not already parsed, to ensure sections are saved
     const contentToSave = parsedContent ?? parseChordLyrics(rawText)
     setSaving(true)
     setSaveError(null)
@@ -345,7 +328,7 @@ export default function SongEditor() {
         navigate(`/songs/${newSong.id}`)
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save song')
+      setSaveError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
     } finally {
       setSaving(false)
     }
@@ -354,77 +337,111 @@ export default function SongEditor() {
   if (isEditing && songLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-[#898989] text-sm">Loading song...</div>
+        <div className="spinner" />
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" style={{ background: 'var(--bg-primary)' }}>
       {/* Header — title + cancel/save */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-[#2e2e2e] shrink-0">
-        <h1 className="text-lg text-[#fafafa]">
-          {isEditing ? 'Edit Song' : 'New Song'}
+      <motion.header
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: easeOutExpo }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 'var(--space-md) var(--space-lg)',
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--bg-secondary)',
+        }}
+      >
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>
+          {isEditing ? 'แก้ไขเพลง' : 'เพิ่มเพลงใหม่'}
         </h1>
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <button
             onClick={() => navigate(-1)}
-            className="px-4 py-1.5 rounded border border-[#2e2e2e] text-sm text-[#b4b4b4] hover:text-[#fafafa] hover:border-[#363636] transition-colors"
+            className="btn-secondary"
+            style={{ padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem' }}
           >
-            Cancel
+            ยกเลิก
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-1.5 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:bg-[#2db87a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="btn-primary"
+            style={{ padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem', opacity: saving ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'กำลังบันทึก…' : 'บันทึก'}
           </button>
         </div>
-      </header>
+      </motion.header>
 
       {/* Error banner */}
-      {saveError && (
-        <div className="px-6 py-2 bg-red-900/30 border-b border-red-800 text-red-300 text-sm">
-          {saveError}
-        </div>
-      )}
+      <AnimatePresence>
+        {saveError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: easeOutExpo }}
+            style={{
+              padding: 'var(--space-sm) var(--space-lg)',
+              fontSize: '0.875rem',
+              background: 'var(--status-error-bg)',
+              borderBottom: '1px solid var(--status-error-border)',
+              color: 'var(--status-error-text)',
+            }}
+          >
+            {saveError}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Body — metadata + editor + preview */}
       <div className="flex-1 flex min-h-0 flex-col md:flex-row">
         {/* Left side — metadata + raw text editor */}
-        <div className="w-full md:w-1/2 flex flex-col min-h-0 border-b md:border-b-0 md:border-r border-[#2e2e2e]">
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border-subtle)' }} className="md:w-1/2 md:border-r">
           {/* Metadata fields */}
-          <div className="px-6 py-4 space-y-3 border-b border-[#2e2e2e] shrink-0">
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-xs text-[#898989] mb-1">Title</label>
+          <div style={{ padding: 'var(--space-lg)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
+                  ชื่อเพลง
+                </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Song title"
-                  className="w-full px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-sm text-[#fafafa] placeholder-[#898989] focus:outline-none focus:border-[#3ecf8e] transition-colors"
+                  placeholder="ชื่อเพลง"
+                  className="input-field"
                 />
               </div>
-              <div className="flex-1">
-                <label className="block text-xs text-[#898989] mb-1">Artist</label>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
+                  ศิลปิน
+                </label>
                 <input
                   type="text"
                   value={artist}
                   onChange={(e) => setArtist(e.target.value)}
-                  placeholder="Artist name"
-                  className="w-full px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-sm text-[#fafafa] placeholder-[#898989] focus:outline-none focus:border-[#3ecf8e] transition-colors"
+                  placeholder="ชื่อศิลปิน"
+                  className="input-field"
                 />
               </div>
             </div>
-            <div className="flex items-end gap-3">
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-md)' }}>
               <div>
-                <label className="block text-xs text-[#898989] mb-1">Key</label>
+                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
+                  คีย์
+                </label>
                 <select
                   value={selectedKey}
                   onChange={(e) => setSelectedKey(e.target.value)}
-                  className="px-3 py-2 rounded bg-[#171717] border border-[#2e2e2e] text-sm text-[#fafafa] focus:outline-none focus:border-[#3ecf8e] transition-colors"
+                  className="input-field"
                 >
                   {KEY_OPTIONS.map((k) => (
                     <option key={k} value={k}>{k}</option>
@@ -432,64 +449,90 @@ export default function SongEditor() {
                 </select>
               </div>
               {detectedKey && (
-                <span className="text-xs text-[#898989] pb-2">
-                  Auto-detected: <span className="text-[#3ecf8e]">{detectedKey}</span>
+                <span style={{ fontSize: '0.875rem', color: 'var(--fg-tertiary)', paddingBottom: 'var(--space-sm)' }}>
+                  ตรวจพบ: <span style={{ color: 'var(--accent)' }}>{detectedKey}</span>
                 </span>
               )}
             </div>
           </div>
 
           {/* Raw text editor + parse button */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-between px-6 py-2 border-b border-[#2e2e2e] shrink-0">
-              <span className="text-xs text-[#898989] uppercase tracking-wider">
-                Raw Chord + Lyrics
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
+                ข้อความคอร์ด + เนื้อเพลง
               </span>
               <button
                 onClick={handleParse}
-                className="px-3 py-1 rounded border border-[#3ecf8e] text-xs text-[#3ecf8e] hover:bg-[#3ecf8e] hover:text-[#0f0f0f] transition-colors"
+                style={{
+                  padding: 'var(--space-xs) var(--space-md)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.75rem',
+                  border: '1px solid var(--accent)',
+                  color: 'var(--accent)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  transition: 'all 200ms var(--ease-out)',
+                  fontFamily: 'var(--font-display)',
+                }}
               >
-                Parse
+                แปลง
               </button>
             </div>
             <textarea
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
-              placeholder={`Paste chord+lyrics here...\n\nExample:\nC        G          Am       F\nAmazing grace how sweet the sound\n\nOr ChordPro format:\n[C]Amazing [G]grace [Am]how [F]sweet`}
-              className="flex-1 w-full px-6 py-4 bg-[#171717] text-sm text-[#fafafa] font-mono placeholder-[#898989] resize-none focus:outline-none"
+              placeholder={`วางคอร์ด+เนื้อเพลงที่นี่...\n\nตัวอย่าง:\nC        G          Am       F\nAmazing grace how sweet the sound\n\nหรือ ChordPro format:\n[C]Amazing [G]grace [Am]how [F]sweet`}
+              style={{
+                flex: 1,
+                width: '100%',
+                padding: 'var(--space-lg)',
+                background: 'transparent',
+                fontSize: '0.875rem',
+                fontFamily: 'var(--font-mono)',
+                resize: 'none',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--fg-primary)',
+              }}
               spellCheck={false}
             />
           </div>
         </div>
 
         {/* Right side — live preview with draggable chords */}
-        <div className="w-full md:w-1/2 flex flex-col min-h-0">
-          <div className="flex items-center justify-between px-6 py-2 border-b border-[#2e2e2e] shrink-0">
-            <span className="text-xs text-[#898989] uppercase tracking-wider">
-              Preview — drag chords to align
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }} className="md:w-1/2">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
+              ดูตัวอย่าง — ลากคอร์ดเพื่อปรับตำแหน่ง
             </span>
-            <button
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               onClick={() => useSongEditorStore.getState().toggleFlats()}
-              className={`px-2 py-1 rounded text-xs border transition-colors ${
-                useFlats
-                  ? 'border-[rgba(62,207,142,0.3)] text-[#3ecf8e]'
-                  : 'border-[#2e2e2e] text-[#b4b4b4] hover:text-[#fafafa]'
-              }`}
+              style={{
+                padding: 'var(--space-xs) var(--space-sm)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.75rem',
+                border: `1px solid ${useFlats ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                color: useFlats ? 'var(--accent)' : 'var(--fg-secondary)',
+                background: useFlats ? 'var(--accent-bg)' : 'transparent',
+                transition: 'all 200ms var(--ease-out)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+              }}
             >
               {useFlats ? '♭' : '♯'}
-            </button>
+            </motion.button>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)' }}>
             {parsedContent && parsedContent.sections.length > 0 ? (
               parsedContent.sections.map((section, si) => (
-                <div key={si} className="mb-6">
-                  {/* Section marker */}
+                <div key={si} style={{ marginBottom: 'var(--space-xl)' }}>
                   {section.marker !== '' && (
-                    <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-[#898989]">
+                    <div style={{ marginBottom: 'var(--space-sm)', fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
                       {section.marker}
                     </div>
                   )}
-                  {/* Lines with draggable chords */}
                   {section.lines.map((line, li) => (
                     <div key={li}>
                       {line.chords && (
@@ -501,7 +544,7 @@ export default function SongEditor() {
                         />
                       )}
                       {line.lyrics && (
-                        <div className="text-base leading-relaxed text-[#fafafa] whitespace-pre">
+                        <div style={{ fontSize: '1rem', lineHeight: 1.6, whiteSpace: 'pre', color: 'var(--fg-primary)' }}>
                           {line.lyrics}
                         </div>
                       )}
@@ -510,11 +553,10 @@ export default function SongEditor() {
                 </div>
               ))
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <p className="text-[#898989] text-sm">
-                    Paste chord+lyrics text and click{' '}
-                    <strong className="text-[#3ecf8e]">Parse</strong> to see a preview
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.9375rem', color: 'var(--fg-tertiary)' }}>
+                    วางข้อความคอร์ด+เนื้อเพลง แล้วคลิก <strong style={{ color: 'var(--accent)' }}>แปลง</strong> เพื่อดูตัวอย่าง
                   </p>
                 </div>
               </div>
