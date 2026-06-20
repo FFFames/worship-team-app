@@ -1,11 +1,11 @@
 /** SongLibrary — Grid layout of song cards
  *
  * Design system:
- * - Dark theme with warm-tinted neutrals (OKLCH)
- * - Accent: warm emerald green used ≤10% of surface
- * - Balanced, centered layouts (NEVER left-leaning)
- * - Kanit font for display/body, Source Code Pro for chords
- * - Exponential ease-out motion curves only
+ * - Warm-tinted dark neutrals (OKLCH)
+ * - Accent emerald used sparingly
+ * - Balanced, breathable layouts
+ * - Kanit display/body + Source Code Pro mono
+ * - Exponential ease-out motion only; staggered card entrance
  */
 
 import { useState, useMemo } from 'react'
@@ -62,23 +62,28 @@ export default function SongLibrary() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div style={{ minHeight: '60vh' }}>
       {/* Page header */}
-      <div className="page-header">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: easeOutExpo }}
+        className="page-header"
+      >
         <div className="page-title">
           <h1>คลังเพลง</h1>
-          <p>จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว</p>
+          <p>{songs.length > 0 ? `${songs.length} เพลง · จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว` : 'จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว'}</p>
         </div>
         <div className="page-actions">
           <button onClick={handleCreateNew} className="btn-primary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17 }}>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             สร้างเพลงใหม่
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Filter bar */}
       <div className="filter-bar">
@@ -86,8 +91,8 @@ export default function SongLibrary() {
         <div className="search-box">
           <div className="search-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </div>
           <input
@@ -100,11 +105,7 @@ export default function SongLibrary() {
         </div>
 
         {/* Sort dropdown */}
-        <select
-          className="sort-dropdown"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-        >
+        <select className="sort-dropdown" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
           <option value="updated">เรียงตาม: ล่าสุด</option>
           <option value="title">เรียงตาม: ชื่อ A-Z</option>
           <option value="artist">เรียงตาม: ศิลปิน</option>
@@ -125,18 +126,14 @@ export default function SongLibrary() {
       )}
 
       {!loading && !error && filteredSongs.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, ease: easeOutExpo }}
-          className="songs-grid"
-        >
+        <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }} className="songs-grid">
           {filteredSongs.map((song) => (
-            <SongCard
+            <motion.div
               key={song.id}
-              song={song}
-              onEdit={handleEdit}
-            />
+              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: easeOutExpo } } }}
+            >
+              <SongCard song={song} onEdit={handleEdit} />
+            </motion.div>
           ))}
         </motion.div>
       )}
@@ -145,14 +142,14 @@ export default function SongLibrary() {
         <div className="empty-state">
           <div className="empty-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}>
-              <path d="M9 18V5l12-2v13"/>
-              <circle cx="6" cy="18" r="3"/>
-              <circle cx="18" cy="16" r="3"/>
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
             </svg>
           </div>
           <h2>ยังไม่มีเพลง</h2>
           <p>เริ่มต้นสร้างเพลงแรกของคุณ หรือนำเข้าจากไฟล์ที่มีอยู่</p>
-          <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={handleCreateNew} className="btn-primary">สร้างเพลงใหม่</button>
             <button className="btn-secondary">นำเข้าเพลง</button>
           </div>

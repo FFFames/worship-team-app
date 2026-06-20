@@ -20,6 +20,8 @@ export default function PresenterScreen() {
   const [mode, setMode] = useState<DisplayMode>('welcome')
   const [lyrics, setLyrics] = useState('')
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
+  const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('/welcome.svg')
+  const [textVerticalOffset, setTextVerticalOffset] = useState<number>(50)
   const videoRef = useRef<HTMLVideoElement>(null)
   const channelRef = useRef<ReturnType<typeof createPresenterChannel> | null>(null)
 
@@ -34,6 +36,7 @@ export default function PresenterScreen() {
           break
         case 'SHOW_WELCOME':
           setMode('welcome')
+          if (msg.welcomeImageUrl) setWelcomeImageUrl(msg.welcomeImageUrl)
           if (msg.background) setBackgroundUrl(msg.background)
           break
         case 'SHOW_BLACK':
@@ -41,6 +44,9 @@ export default function PresenterScreen() {
           break
         case 'SET_BACKGROUND':
           setBackgroundUrl(msg.url)
+          break
+        case 'SET_TEXT_POSITION':
+          setTextVerticalOffset(Math.max(0, Math.min(100, msg.offset)))
           break
         case 'CLOSE':
           window.close()
@@ -78,20 +84,29 @@ export default function PresenterScreen() {
       {mode === 'black' ? (
         <div style={{ width: '100%', height: '100%', background: 'black' }} />
       ) : mode === 'welcome' ? (
-        <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '5rem', marginBottom: 'var(--space-xl)' }}>♫</div>
-            <h1 style={{ fontSize: 'clamp(3rem, 8vw, 5rem)', fontWeight: 300, color: 'white', letterSpacing: '0.05em', fontFamily: 'var(--font-display)', margin: 0 }}>
-              Welcome
-            </h1>
-            <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: 'var(--space-lg)' }}>
-              Please stand by
-            </p>
-          </div>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'black' }}>
+          <img
+            src={welcomeImageUrl}
+            alt="Welcome"
+            style={{ maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
       ) : (
-        <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '0 var(--space-4xl)' }}>
-          <div style={{ textAlign: 'center', maxWidth: '64rem' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100%',
+            padding: 'var(--space-2xl) var(--space-4xl)',
+          }}
+        >
+          {/* Top spacer — grows as offset increases (pushes content down) */}
+          <div style={{ flex: `${textVerticalOffset} 0 0` }} />
+          {/* Lyric content — horizontally centered via alignSelf (not marginLeft:auto) */}
+          <div style={{ alignSelf: 'center', textAlign: 'center', maxWidth: '64rem' }}>
             {lyrics.split('\n').map((line, i) => (
               <p
                 key={i}
@@ -101,6 +116,8 @@ export default function PresenterScreen() {
               </p>
             ))}
           </div>
+          {/* Bottom spacer — shrinks as offset increases */}
+          <div style={{ flex: `${100 - textVerticalOffset} 0 0` }} />
         </div>
       )}
     </div>
