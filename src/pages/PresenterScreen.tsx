@@ -20,7 +20,7 @@ export default function PresenterScreen() {
   const [mode, setMode] = useState<DisplayMode>('welcome')
   const [lyrics, setLyrics] = useState('')
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
-  const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('/welcome.svg')
+  const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('/welcome.png')
   const [textVerticalOffset, setTextVerticalOffset] = useState<number>(50)
   const videoRef = useRef<HTMLVideoElement>(null)
   const channelRef = useRef<ReturnType<typeof createPresenterChannel> | null>(null)

@@ -32,7 +32,7 @@ export const usePresentationStore = create<PresentationState>((set) => ({
   isShowingWelcome: false,
   isBlacked: false,
   videoBackground: null,
-  welcomeImageUrl: '/welcome.svg',
+  welcomeImageUrl: '/welcome.png',
   textVerticalOffset: 50,
 
   setPlaylistId: (id) => set({ currentPlaylistId: id }),
@@ -52,7 +52,7 @@ export const usePresentationStore = create<PresentationState>((set) => ({
       isShowingWelcome: false,
       isBlacked: false,
       videoBackground: null,
-      welcomeImageUrl: '/welcome.svg',
+      welcomeImageUrl: '/welcome.png',
       textVerticalOffset: 50,
     }),
 }));

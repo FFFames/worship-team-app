@@ -14,7 +14,7 @@ export type Slide = {
 }
 
 /** Maximum number of lyric lines placed on a single slide. */
-export const MAX_LINES_PER_SLIDE = 6
+export const MAX_LINES_PER_SLIDE = 4
 
 /** Human-readable label for each section type. */
 const SECTION_LABELS: Record<SectionType, string> = {
