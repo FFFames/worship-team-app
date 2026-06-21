@@ -9,7 +9,7 @@
  * - Exponential ease-out motion curves only
  */
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef, useState, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { useVideoBackgrounds } from '../hooks/useVideoBackgrounds'
@@ -19,27 +19,7 @@ import {
   createControlChannel,
   type PresentationMessage,
 } from '../utils/presentationChannel'
-import type { Section } from '../types/database'
-
-/** Split a section's lyrics into "blocks" for presentation pages */
-function sectionToBlocks(section: Section, _transpose: number): string[][] {
-  void _transpose
-  const lyricLines = section.lines
-    .filter((l) => l.lyrics.trim())
-    .map((l) => l.lyrics)
-
-  const blocks: string[][] = []
-  for (let i = 0; i < lyricLines.length; i += 2) {
-    const block: string[] = [lyricLines[i]]
-    if (i + 1 < lyricLines.length) block.push(lyricLines[i + 1])
-    if (i + 2 < lyricLines.length && block.length < 3) {
-      block.push(lyricLines[i + 2])
-      i++
-    }
-    blocks.push(block)
-  }
-  return blocks
-}
+import { buildSlides, type Slide } from '../utils/slideBuilder'
 
 export default function PresentationControl() {
   const { id } = useParams<{ id: string }>()
@@ -52,19 +32,14 @@ export default function PresentationControl() {
   // Mobile tab state
   const [activeTab, setActiveTab] = useState<'songs' | 'lyrics' | 'controls'>('lyrics')
 
-  // Build all lyric blocks for current song
+  // Build all presentation slides for the current song.
+  // buildSlides guarantees each slide belongs to EXACTLY ONE section.
   const currentSong = songs[store.currentSongIndex]
   const currentSections = currentSong?.song?.raw_content
     ? (currentSong.song.sections ?? parseChordLyrics(currentSong.song.raw_content).sections)
     : []
 
-  const allBlocks: { sectionType: string; lines: string[] }[] = []
-  for (const section of currentSections) {
-    const blocks = sectionToBlocks(section, 0)
-    for (const block of blocks) {
-      allBlocks.push({ sectionType: section.type, lines: block })
-    }
-  }
+  const allBlocks: Slide[] = buildSlides(currentSections)
 
   // Init BroadcastChannel on mount
   useEffect(() => {
@@ -100,10 +75,9 @@ export default function PresentationControl() {
         const sections = song.song?.raw_content
           ? (song.song.sections ?? parseChordLyrics(song.song.raw_content).sections)
           : []
-        const t = song.transpose ?? 0
-        const blocks = sections.flatMap((s) => sectionToBlocks(s, t))
-        if (blocks.length > 0) {
-          send({ type: 'SHOW_LYRICS', lyrics: blocks[0].join('\n'), background: store.videoBackground?.url })
+        const slides = buildSlides(sections)
+        if (slides.length > 0) {
+          send({ type: 'SHOW_LYRICS', lyrics: slides[0].lines.join('\n'), background: store.videoBackground?.url })
         }
       }
     },
@@ -151,13 +125,23 @@ export default function PresentationControl() {
   // Welcome / Black
   const showWelcome = useCallback(() => {
     store.showWelcome()
-    send({ type: 'SHOW_WELCOME', background: store.videoBackground?.url })
+    send({ type: 'SHOW_WELCOME', welcomeImageUrl: store.welcomeImageUrl, background: store.videoBackground?.url })
   }, [store, send])
 
   const showBlack = useCallback(() => {
     store.showBlack()
     send({ type: 'SHOW_BLACK' })
   }, [send])
+
+  /** Adjust vertical position of lyrics text (0 = top, 50 = center, 100 = bottom) */
+  const setTextPosition = useCallback(
+    (offset: number) => {
+      const clamped = Math.max(0, Math.min(100, Math.round(offset)))
+      store.setTextVerticalOffset(clamped)
+      send({ type: 'SET_TEXT_POSITION', offset: clamped })
+    },
+    [store, send],
+  )
 
   const changeBackground = useCallback(
     (url: string) => {
@@ -192,7 +176,7 @@ export default function PresentationControl() {
     )
   }
 
-  const currentSectionName = allBlocks[store.currentBlockIndex]?.sectionType ?? 'Select a slide'
+  const currentSectionName = allBlocks[store.currentBlockIndex]?.sectionLabel ?? 'Select a slide'
 
   return (
     <main style={{ display: 'flex', flex: 1, overflow: 'hidden', margin: 'calc(var(--space-3xl) * -1) calc(var(--space-lg) * -1)' }}>
@@ -357,44 +341,75 @@ export default function PresentationControl() {
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                {allBlocks.map((block, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => selectBlock(idx)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '16px',
-                      borderRadius: '8px',
-                      border: '2px solid',
-                      transition: 'all 150ms var(--ease-out)',
-                      borderColor: idx === store.currentBlockIndex ? 'var(--accent)' : 'var(--border-subtle)',
-                      background: idx === store.currentBlockIndex ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (idx !== store.currentBlockIndex) {
-                        e.currentTarget.style.borderColor = 'var(--border-default)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (idx !== store.currentBlockIndex) {
-                        e.currentTarget.style.borderColor = 'var(--border-subtle)'
-                      }
-                    }}
-                  >
-                    <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)', marginBottom: '8px', textTransform: 'uppercase' }}>
-                      {block.sectionType}
-                    </div>
-                    {block.lines.map((line, li) => (
-                      <div key={li} style={{
-                        fontSize: '14px',
-                        color: 'var(--fg-primary)',
-                        lineHeight: 1.6
-                      }}>
-                        {line}
-                      </div>
-                    ))}
-                  </button>
-                ))}
+                {allBlocks.map((block, idx) => {
+                  const prev = allBlocks[idx - 1]
+                  const isNewSection = !prev || prev.sectionType !== block.sectionType
+                  return (
+                    <Fragment key={idx}>
+                      {isNewSection && (
+                        <div
+                          style={{
+                            gridColumn: '1 / -1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginTop: idx === 0 ? 0 : '12px',
+                          }}
+                        >
+                          <div style={{ height: '1px', flex: 1, background: 'var(--border-subtle)' }} />
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                              color: 'var(--accent)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {block.sectionLabel}
+                          </span>
+                          <div style={{ height: '1px', flex: 1, background: 'var(--border-subtle)' }} />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => selectBlock(idx)}
+                        style={{
+                          textAlign: 'left',
+                          padding: '16px',
+                          borderRadius: '8px',
+                          border: '2px solid',
+                          transition: 'all 150ms var(--ease-out)',
+                          borderColor: idx === store.currentBlockIndex ? 'var(--accent)' : 'var(--border-subtle)',
+                          background: idx === store.currentBlockIndex ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (idx !== store.currentBlockIndex) {
+                            e.currentTarget.style.borderColor = 'var(--border-standard)'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (idx !== store.currentBlockIndex) {
+                            e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                          }
+                        }}
+                      >
+                        <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                          {block.sectionLabel}
+                        </div>
+                        {block.lines.map((line, li) => (
+                          <div key={li} style={{
+                            fontSize: '14px',
+                            color: 'var(--fg-primary)',
+                            lineHeight: 1.6
+                          }}>
+                            {line}
+                          </div>
+                        ))}
+                      </button>
+                    </Fragment>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -420,21 +435,26 @@ export default function PresentationControl() {
                 {store.isBlacked ? (
                   <div style={{ width: '100%', height: '100%', background: 'black' }} />
                 ) : store.isShowingWelcome ? (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>♫</div>
-                    <div style={{ fontSize: '14px', color: 'var(--fg-secondary)' }}>Welcome</div>
-                  </div>
+                  <img
+                    src={store.welcomeImageUrl}
+                    alt="Welcome"
+                    style={{ maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
                 ) : allBlocks[store.currentBlockIndex] ? (
-                  <div style={{ textAlign: 'center', padding: '16px' }}>
-                    {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
-                      <div key={i} style={{
-                        fontSize: '14px',
-                        color: 'white',
-                        lineHeight: 1.6
-                      }}>
-                        {line}
-                      </div>
-                    ))}
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '8px' }}>
+                    <div style={{ flex: `${store.textVerticalOffset} 0 0` }} />
+                    <div style={{ alignSelf: 'center', textAlign: 'center', maxWidth: '90%' }}>
+                      {allBlocks[store.currentBlockIndex].lines.map((line, i) => (
+                        <div key={i} style={{
+                          fontSize: '14px',
+                          color: 'white',
+                          lineHeight: 1.6
+                        }}>
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: `${100 - store.textVerticalOffset} 0 0` }} />
                   </div>
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--fg-tertiary)' }}>No content</div>
@@ -480,6 +500,69 @@ export default function PresentationControl() {
                   >
                     Black
                   </button>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--fg-tertiary)', marginBottom: '6px' }}>
+                    <span>Text Position</span>
+                    <span style={{ color: 'var(--fg-secondary)', fontVariantNumeric: 'tabular-nums' }}>{store.textVerticalOffset}</span>
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      aria-label="Move text up"
+                      onClick={() => setTextPosition(store.textVerticalOffset - 5)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        padding: 0,
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        lineHeight: 1,
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--fg-secondary)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        transition: 'all 150ms var(--ease-out)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fg-primary)'; e.currentTarget.style.borderColor = 'var(--border-default)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fg-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+                    >
+                      ↑
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={store.textVerticalOffset}
+                      onChange={(e) => setTextPosition(Number(e.target.value))}
+                      aria-label="Text vertical position"
+                      style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Move text down"
+                      onClick={() => setTextPosition(store.textVerticalOffset + 5)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        padding: 0,
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        lineHeight: 1,
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--fg-secondary)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        transition: 'all 150ms var(--ease-out)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fg-primary)'; e.currentTarget.style.borderColor = 'var(--border-default)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fg-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+                    >
+                      ↓
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>

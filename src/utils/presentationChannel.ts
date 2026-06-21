@@ -3,9 +3,10 @@
 
 export type PresentationMessage =
   | { type: 'SHOW_LYRICS'; lyrics: string; background?: string }
-  | { type: 'SHOW_WELCOME'; background?: string }
+  | { type: 'SHOW_WELCOME'; welcomeImageUrl?: string; background?: string }
   | { type: 'SHOW_BLACK' }
   | { type: 'SET_BACKGROUND'; url: string }
+  | { type: 'SET_TEXT_POSITION'; offset: number }
   | { type: 'CLOSE' };
 
 const CHANNEL_NAME = 'worshipteam-presentation';

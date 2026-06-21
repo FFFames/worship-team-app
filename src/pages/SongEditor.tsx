@@ -1,18 +1,17 @@
 /** SongEditor — Create or edit a song with raw text input, parse, live preview, and draggable chord aligner
  *
  * Design system:
- * - Dark theme with warm-tinted neutrals (OKLCH)
- * - Accent: warm emerald green used ≤10% of surface
- * - Balanced, centered layouts (NEVER left-leaning)
- * - Kanit font for display/body, Source Code Pro for chords
- * - Exponential ease-out motion curves only
+ * - Warm-tinted dark neutrals (OKLCH)
+ * - Accent emerald used sparingly
+ * - Balanced, breathable layouts
+ * - Kanit display/body + Source Code Pro mono
+ * - Exponential ease-out motion only
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSongEditorStore } from '../store/songEditorStore'
-import { useSong } from '../hooks/useSongs'
-import { useSongs } from '../hooks/useSongs'
+import { useSong, useSongs } from '../hooks/useSongs'
 import { parseChordLyrics, detectKey } from '../utils/chordParser'
 import type { SongLine } from '../types/database'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -179,7 +178,7 @@ function DraggableChordLine({
     return (
       <>
         {line.chords && (
-          <div className="font-mono text-sm leading-tight whitespace-pre" style={{ color: 'var(--accent)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: 1.4, whiteSpace: 'pre', color: 'var(--accent)', fontWeight: 600 }}>
             {line.chords}
           </div>
         )}
@@ -192,12 +191,14 @@ function DraggableChordLine({
 
   return (
     <>
-      <div ref={containerRef} className="font-mono text-sm leading-tight whitespace-pre relative select-none" style={{ minWidth: `${totalWidth}ch` }}>
+      <div
+        ref={containerRef}
+        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: 1.4, whiteSpace: 'pre', position: 'relative', userSelect: 'none', minWidth: `${totalWidth}ch` }}
+      >
         {tokens.map((token, ti) => (
           <span
             key={ti}
-            className="absolute cursor-grab active:cursor-grabbing transition-colors"
-            style={{ left: `${token.pos}ch`, color: 'var(--accent)' }}
+            style={{ position: 'absolute', left: `${token.pos}ch`, color: 'var(--accent)', fontWeight: 600, cursor: 'grab' }}
             onMouseDown={(e) => handleMouseDown(ti, e)}
             onTouchStart={(e) => handleTouchStart(ti, e)}
             title="ลากเพื่อปรับตำแหน่ง"
@@ -205,7 +206,7 @@ function DraggableChordLine({
             {token.chord}
           </span>
         ))}
-        {' '}
+        {' '}
       </div>
     </>
   )
@@ -345,42 +346,31 @@ export default function SongEditor() {
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+    <div className="flex flex-col" style={{ gap: 'var(--space-xl)' }}>
       {/* Header — title + cancel/save */}
-      <motion.header
-        initial={{ opacity: 0, y: -8 }}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: easeOutExpo }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-md) var(--space-lg)',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--bg-secondary)',
-        }}
+        transition={{ duration: 0.3, ease: easeOutExpo }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)', flexWrap: 'wrap' }}
       >
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>
-          {isEditing ? 'แก้ไขเพลง' : 'เพิ่มเพลงใหม่'}
-        </h1>
+        <div>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', margin: 0 }}>
+            {isEditing ? 'แก้ไขเพลง' : 'เพิ่มเพลงใหม่'}
+          </h1>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--fg-secondary)', marginTop: 'var(--space-xs)', margin: 0 }}>
+            {isEditing ? 'ปรับปรุงรายละเอียดและคอร์ดของเพลง' : 'วางคอร์ด+เนื้อเพลง แล้วปรับตำแหน่งคอร์ดในตัวอย่าง'}
+          </p>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-          <button
-            onClick={() => navigate(-1)}
-            className="btn-secondary"
-            style={{ padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem' }}
-          >
+          <button onClick={() => navigate(-1)} className="btn-secondary">
             ยกเลิก
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary"
-            style={{ padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem', opacity: saving ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
-          >
+          <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? 'กำลังบันทึก…' : 'บันทึก'}
           </button>
         </div>
-      </motion.header>
+      </motion.div>
 
       {/* Error banner */}
       <AnimatePresence>
@@ -390,161 +380,114 @@ export default function SongEditor() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: easeOutExpo }}
-            style={{
-              padding: 'var(--space-sm) var(--space-lg)',
-              fontSize: '0.875rem',
-              background: 'var(--status-error-bg)',
-              borderBottom: '1px solid var(--status-error-border)',
-              color: 'var(--status-error-text)',
-            }}
+            className="surface"
+            style={{ padding: 'var(--space-sm) var(--space-lg)', fontSize: '0.875rem', background: 'var(--status-error-bg)', borderColor: 'var(--status-error-border)', color: 'var(--status-error-text)' }}
           >
             {saveError}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Body — metadata + editor + preview */}
-      <div className="flex-1 flex min-h-0 flex-col md:flex-row">
-        {/* Left side — metadata + raw text editor */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border-subtle)' }} className="md:w-1/2 md:border-r">
-          {/* Metadata fields */}
-          <div style={{ padding: 'var(--space-lg)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
-                  ชื่อเพลง
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="ชื่อเพลง"
-                  className="input-field"
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
-                  ศิลปิน
-                </label>
-                <input
-                  type="text"
-                  value={artist}
-                  onChange={(e) => setArtist(e.target.value)}
-                  placeholder="ชื่อศิลปิน"
-                  className="input-field"
-                />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-md)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: 'var(--space-xs)', fontWeight: 500, color: 'var(--fg-secondary)', fontFamily: 'var(--font-display)' }}>
-                  คีย์
-                </label>
-                <select
-                  value={selectedKey}
-                  onChange={(e) => setSelectedKey(e.target.value)}
-                  className="input-field"
-                >
-                  {KEY_OPTIONS.map((k) => (
-                    <option key={k} value={k}>{k}</option>
-                  ))}
-                </select>
-              </div>
-              {detectedKey && (
-                <span style={{ fontSize: '0.875rem', color: 'var(--fg-tertiary)', paddingBottom: 'var(--space-sm)' }}>
-                  ตรวจพบ: <span style={{ color: 'var(--accent)' }}>{detectedKey}</span>
-                </span>
-              )}
-            </div>
+      {/* Metadata fields */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05, ease: easeOutExpo }}
+        className="surface"
+        style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
+      >
+        <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="field-label">ชื่อเพลง</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ชื่อเพลง" className="input-field" />
           </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="field-label">ศิลปิน</label>
+            <input type="text" value={artist} onChange={(e) => setArtist(e.target.value)} placeholder="ชื่อศิลปิน" className="input-field" />
+          </div>
+          <div style={{ minWidth: 120 }}>
+            <label className="field-label">คีย์</label>
+            <select value={selectedKey} onChange={(e) => setSelectedKey(e.target.value)} className="input-field">
+              {KEY_OPTIONS.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {detectedKey && (
+          <p style={{ fontSize: '0.8125rem', color: 'var(--fg-tertiary)', margin: 0 }}>
+            ตรวจพบคีย์: <span style={{ color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{detectedKey}</span>
+          </p>
+        )}
+      </motion.div>
 
-          {/* Raw text editor + parse button */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
-                ข้อความคอร์ด + เนื้อเพลง
-              </span>
-              <button
-                onClick={handleParse}
-                style={{
-                  padding: 'var(--space-xs) var(--space-md)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.75rem',
-                  border: '1px solid var(--accent)',
-                  color: 'var(--accent)',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  transition: 'all 200ms var(--ease-out)',
-                  fontFamily: 'var(--font-display)',
-                }}
-              >
-                แปลง
-              </button>
-            </div>
-            <textarea
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder={`วางคอร์ด+เนื้อเพลงที่นี่...\n\nตัวอย่าง:\nC        G          Am       F\nAmazing grace how sweet the sound\n\nหรือ ChordPro format:\n[C]Amazing [G]grace [Am]how [F]sweet`}
-              style={{
-                flex: 1,
-                width: '100%',
-                minHeight: '60vh',
-                padding: 'var(--space-lg)',
-                background: 'transparent',
-                fontSize: '0.875rem',
-                fontFamily: 'var(--font-mono)',
-                resize: 'none',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--fg-primary)',
-              }}
-              spellCheck={false}
-            />
+      {/* Body — editor + preview side by side on desktop */}
+      <div className="flex flex-col md:flex-row" style={{ gap: 'var(--space-lg)' }}>
+        {/* Left side — raw text editor */}
+        <div className="surface" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <span className="section-label">ข้อความคอร์ด + เนื้อเพลง</span>
+            <button onClick={handleParse} className="btn-ghost" style={{ border: '1px solid var(--accent-muted)', color: 'var(--accent)' }}>
+              แปลง
+            </button>
           </div>
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder={`วางคอร์ด+เนื้อเพลงที่นี่...\n\nตัวอย่าง:\nC        G          Am       F\nAmazing grace how sweet the sound\n\nหรือ ChordPro format:\n[C]Amazing [G]grace [Am]how [F]sweet`}
+            spellCheck={false}
+            style={{
+              width: '100%',
+              minHeight: '50vh',
+              padding: 'var(--space-md)',
+              background: 'transparent',
+              fontSize: '0.875rem',
+              fontFamily: 'var(--font-mono)',
+              lineHeight: 1.6,
+              resize: 'vertical',
+              border: 'none',
+              outline: 'none',
+              color: 'var(--fg-primary)',
+            }}
+          />
         </div>
 
         {/* Right side — live preview with draggable chords */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }} className="md:w-1/2">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
-              ดูตัวอย่าง — ลากคอร์ดเพื่อปรับตำแหน่ง
-            </span>
+        <div className="surface" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <span className="section-label">ตัวอย่าง — ลากคอร์ดเพื่อปรับตำแหน่ง</span>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => useSongEditorStore.getState().toggleFlats()}
               style={{
                 padding: 'var(--space-xs) var(--space-sm)',
                 borderRadius: 'var(--radius-sm)',
-                fontSize: '0.75rem',
-                border: `1px solid ${useFlats ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                fontFamily: 'var(--font-mono)',
+                border: useFlats ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
                 color: useFlats ? 'var(--accent)' : 'var(--fg-secondary)',
                 background: useFlats ? 'var(--accent-bg)' : 'transparent',
-                transition: 'all 200ms var(--ease-out)',
+                transition: 'all var(--duration-fast) var(--ease-out)',
                 cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
               }}
             >
               {useFlats ? '♭' : '♯'}
             </motion.button>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)', minHeight: '50vh' }}>
             {parsedContent && parsedContent.sections.length > 0 ? (
               parsedContent.sections.map((section, si) => (
                 <div key={si} style={{ marginBottom: 'var(--space-xl)' }}>
                   {section.marker !== '' && (
-                    <div style={{ marginBottom: 'var(--space-sm)', fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-tertiary)', fontFamily: 'var(--font-display)' }}>
+                    <div style={{ marginBottom: 'var(--space-sm)', fontSize: '0.75rem', fontWeight: 500, color: 'var(--accent)', fontFamily: 'var(--font-display)' }}>
                       {section.marker}
                     </div>
                   )}
                   {section.lines.map((line, li) => (
                     <div key={li}>
                       {line.chords && (
-                        <DraggableChordLine
-                          line={line}
-                          lineIndex={li}
-                          sectionIndex={si}
-                          onChordMove={handleChordMove}
-                        />
+                        <DraggableChordLine line={line} lineIndex={li} sectionIndex={si} onChordMove={handleChordMove} />
                       )}
                       {line.lyrics && (
                         <div style={{ fontSize: '1rem', lineHeight: 1.6, whiteSpace: 'pre', color: 'var(--fg-primary)' }}>
@@ -556,9 +499,9 @@ export default function SongEditor() {
                 </div>
               ))
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 200 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: '0.9375rem', color: 'var(--fg-tertiary)' }}>
+                  <p style={{ fontSize: '0.9375rem', color: 'var(--fg-tertiary)', margin: 0 }}>
                     วางข้อความคอร์ด+เนื้อเพลง แล้วคลิก <strong style={{ color: 'var(--accent)' }}>แปลง</strong> เพื่อดูตัวอย่าง
                   </p>
                 </div>

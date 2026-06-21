@@ -9,6 +9,10 @@ interface PresentationState {
   isShowingWelcome: boolean;
   isBlacked: boolean;
   videoBackground: VideoBackground | null;
+  /** URL of the welcome image shown on the welcome screen. */
+  welcomeImageUrl: string;
+  /** Vertical position of lyrics text. 0 = top, 50 = center, 100 = bottom. */
+  textVerticalOffset: number;
   setPlaylistId: (id: string | null) => void;
   setSongIndex: (index: number) => void;
   setBlockIndex: (index: number) => void;
@@ -16,6 +20,8 @@ interface PresentationState {
   showBlack: () => void;
   showLyrics: () => void;
   setVideoBackground: (bg: VideoBackground | null) => void;
+  setWelcomeImageUrl: (url: string) => void;
+  setTextVerticalOffset: (offset: number) => void;
   reset: () => void;
 }
 
@@ -26,6 +32,8 @@ export const usePresentationStore = create<PresentationState>((set) => ({
   isShowingWelcome: false,
   isBlacked: false,
   videoBackground: null,
+  welcomeImageUrl: '/welcome.png',
+  textVerticalOffset: 50,
 
   setPlaylistId: (id) => set({ currentPlaylistId: id }),
   setSongIndex: (index) => set({ currentSongIndex: index, currentBlockIndex: 0 }),
@@ -34,6 +42,8 @@ export const usePresentationStore = create<PresentationState>((set) => ({
   showBlack: () => set({ isBlacked: true, isShowingWelcome: false }),
   showLyrics: () => set({ isShowingWelcome: false, isBlacked: false }),
   setVideoBackground: (bg) => set({ videoBackground: bg }),
+  setWelcomeImageUrl: (url) => set({ welcomeImageUrl: url }),
+  setTextVerticalOffset: (offset) => set({ textVerticalOffset: offset }),
   reset: () =>
     set({
       currentPlaylistId: null,
@@ -42,5 +52,7 @@ export const usePresentationStore = create<PresentationState>((set) => ({
       isShowingWelcome: false,
       isBlacked: false,
       videoBackground: null,
+      welcomeImageUrl: '/welcome.png',
+      textVerticalOffset: 50,
     }),
 }));

@@ -1,11 +1,10 @@
 /** StageView — Dark, high-contrast chord chart display for on-stage use
  *
  * Design system:
- * - Dark theme with warm-tinted neutrals (OKLCH)
- * - Accent: warm emerald green used ≤10% of surface
- * - Balanced, centered layouts (NEVER left-leaning)
- * - Kanit font for display/body, Source Code Pro for chords
- * - Exponential ease-out motion curves only
+ * - Warm-tinted dark neutrals (OKLCH), high-contrast text
+ * - Accent emerald used sparingly (active states, key badges)
+ * - Kanit display/body + Source Code Pro mono for chords
+ * - Exponential ease-out motion only
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -92,10 +91,7 @@ export default function StageView() {
       >
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '1.125rem', marginBottom: 'var(--space-md)', color: 'var(--status-error-text)' }}>ข้อผิดพลาด: {error}</p>
-          <Link
-            to={`/playlists/${id}`}
-            style={{ fontSize: '0.875rem', textDecoration: 'none', color: 'var(--accent)', transition: 'color 150ms var(--ease-out)', fontFamily: 'var(--font-display)' }}
-          >
+          <Link to={`/playlists/${id}`} style={{ fontSize: '0.875rem', textDecoration: 'none', color: 'var(--accent)', transition: 'color 150ms var(--ease-out)', fontFamily: 'var(--font-display)' }}>
             ← กลับไปเพลย์ลิสต์
           </Link>
         </div>
@@ -129,20 +125,17 @@ export default function StageView() {
           top: 0,
           zIndex: 50,
           padding: 'var(--space-sm) var(--space-lg)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'oklch(0.15 0.01 240 / 0.95)',
+          backdropFilter: 'blur(16px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+          background: 'oklch(0.165 0.008 65 / 0.85)',
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap', maxWidth: '100rem', margin: '0 auto' }}>
-          <Link
-            to={`/playlists/${id}`}
-            style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)', textDecoration: 'none', flexShrink: 0, transition: 'color 150ms var(--ease-out)', fontFamily: 'var(--font-display)' }}
-          >
+          <Link to={`/playlists/${id}`} style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)', textDecoration: 'none', flexShrink: 0, transition: 'color 150ms var(--ease-out)', fontFamily: 'var(--font-display)' }}>
             ← กลับ
           </Link>
-          <span style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)' }} className="hidden sm:inline">|</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }} className="hidden sm:inline">|</span>
           <h1 style={{ fontSize: '0.875rem', fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--fg-secondary)', margin: 0, fontFamily: 'var(--font-display)' }}>
             {playlist?.name}
           </h1>
@@ -164,12 +157,14 @@ export default function StageView() {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
                     color: 'var(--fg-secondary)',
-                    border: 'none',
                     cursor: 'pointer',
-                    transition: 'all 200ms var(--ease-out)',
+                    transition: 'all var(--duration-fast) var(--ease-out)',
                     fontFamily: 'var(--font-display)',
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-prominent)'; e.currentTarget.style.color = 'var(--fg-primary)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--fg-secondary)' }}
                   title={song.title}
                 >
                   {idx + 1}. {song.title}
@@ -177,19 +172,20 @@ export default function StageView() {
               )
             })}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)' }} className="hidden sm:inline">|</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }} className="hidden sm:inline">|</span>
           <button
             onClick={() => setAutoScroll((v) => !v)}
             style={{
               fontSize: '0.75rem',
-              padding: 'var(--space-xs) var(--space-sm)',
-              borderRadius: '999px',
+              fontWeight: 500,
+              padding: 'var(--space-xs) var(--space-md)',
+              borderRadius: 'var(--radius-full)',
               flexShrink: 0,
               background: autoScroll ? 'var(--accent)' : 'var(--bg-input)',
-              color: autoScroll ? 'var(--bg-primary)' : 'var(--fg-secondary)',
-              border: 'none',
+              border: autoScroll ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
+              color: autoScroll ? 'oklch(0.18 0.02 156)' : 'var(--fg-secondary)',
               cursor: 'pointer',
-              transition: 'all 200ms var(--ease-out)',
+              transition: 'all var(--duration-fast) var(--ease-out)',
               fontFamily: 'var(--font-display)',
             }}
           >
@@ -240,17 +236,8 @@ export default function StageView() {
                     <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', width: 24, flexShrink: 0, color: 'var(--fg-tertiary)' }}>
                       {idx + 1}
                     </span>
-                    <h2 style={{ fontSize: '1.375rem', fontWeight: 500, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>{song.title}</h2>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: 'var(--space-xs) var(--space-sm)',
-                        borderRadius: 'var(--radius-sm)',
-                        fontFamily: 'var(--font-mono)',
-                        background: 'var(--accent-bg)',
-                        color: 'var(--accent)',
-                      }}
-                    >
+                    <h2 style={{ fontSize: '1.375rem', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>{song.title}</h2>
+                    <span style={{ fontSize: '0.75rem', padding: 'var(--space-xs) var(--space-sm)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-mono)', fontWeight: 600, background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-muted)' }}>
                       {transposedKey}
                     </span>
 
@@ -258,20 +245,9 @@ export default function StageView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <button
                         onClick={() => handleTranspose(ps.id, transpose, -1)}
-                        style={{
-                          width: 30,
-                          height: 30,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '1rem',
-                          background: 'var(--bg-input)',
-                          color: 'var(--fg-secondary)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          transition: 'all 200ms var(--ease-out)',
-                        }}
+                        style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', fontSize: '1.125rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--fg-secondary)', cursor: 'pointer', transition: 'all var(--duration-fast) var(--ease-out)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-prominent)'; e.currentTarget.style.color = 'var(--fg-primary)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--fg-secondary)' }}
                         title="เปลี่ยนคีย์ลง 1 โน้ต"
                       >
                         −
@@ -281,20 +257,9 @@ export default function StageView() {
                       </span>
                       <button
                         onClick={() => handleTranspose(ps.id, transpose, 1)}
-                        style={{
-                          width: 30,
-                          height: 30,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '1rem',
-                          background: 'var(--bg-input)',
-                          color: 'var(--fg-secondary)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          transition: 'all 200ms var(--ease-out)',
-                        }}
+                        style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', fontSize: '1.125rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--fg-secondary)', cursor: 'pointer', transition: 'all var(--duration-fast) var(--ease-out)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-prominent)'; e.currentTarget.style.color = 'var(--fg-primary)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--fg-secondary)' }}
                         title="เปลี่ยนคีย์ขึ้น 1 โน้ต"
                       >
                         +
@@ -303,11 +268,7 @@ export default function StageView() {
                   </div>
 
                   {/* Chord display */}
-                  <ChordDisplay
-                    sections={song.sections ?? parseChordLyrics(song.raw_content).sections}
-                    transpose={transpose}
-                    center
-                  />
+                  <ChordDisplay sections={song.sections ?? parseChordLyrics(song.raw_content).sections} transpose={transpose} center />
                 </motion.article>
               )
             })}

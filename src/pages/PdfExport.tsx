@@ -1,4 +1,11 @@
-/** PDF Export page — auto-triggers PDF generation on mount for a given playlist */
+/** PDF Export page — auto-triggers PDF generation on mount for a given playlist
+ *
+ * Design system:
+ * - Dark theme with warm-tinted neutrals (OKLCH)
+ * - Accent: warm emerald green used ≤10% of surface
+ * - Kanit font for display/body
+ * - Exponential ease-out motion curves only
+ */
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
@@ -28,20 +35,35 @@ export default function PdfExport() {
   }, [loading, error, playlist, songs]);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-6">
-      <div className="bg-[#171717] border border-[#2e2e2e] rounded-lg p-10 max-w-md w-full text-center">
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: 'var(--bg-primary)', padding: '0 var(--space-lg)' }}
+    >
+      <div
+        className="card-elevated fade-in"
+        style={{ maxWidth: '28rem', width: '100%', textAlign: 'center' }}
+      >
         {loading && (
           <>
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#3ecf8e] border-t-transparent mx-auto mb-4" />
-            <p className="text-[#b4b4b4] text-sm">Loading playlist data…</p>
+            <div className="spinner" style={{ margin: '0 auto var(--space-md)' }} />
+            <p style={{ color: 'var(--fg-secondary)', fontSize: '0.875rem' }}>
+              Loading playlist data…
+            </p>
           </>
         )}
         {error && (
           <>
-            <p className="text-red-400 text-sm mb-4">Error: {error}</p>
+            <p style={{ color: 'var(--status-error-text)', fontSize: '0.875rem', marginBottom: 'var(--space-md)' }}>
+              Error: {error}
+            </p>
             <Link
               to={`/playlists/${id}`}
-              className="text-[#3ecf8e] text-sm hover:underline"
+              style={{
+                color: 'var(--accent)',
+                fontSize: '0.875rem',
+                textDecoration: 'underline',
+                fontFamily: 'var(--font-display)',
+              }}
             >
               ← Back to playlist
             </Link>
@@ -49,24 +71,46 @@ export default function PdfExport() {
         )}
         {!loading && !error && status === 'generating' && (
           <>
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#3ecf8e] border-t-transparent mx-auto mb-4" />
-            <p className="text-[#fafafa] text-lg font-medium">Generating PDF…</p>
-            <p className="text-[#898989] text-sm mt-1">
+            <div className="spinner" style={{ margin: '0 auto var(--space-md)' }} />
+            <p style={{ color: 'var(--fg-primary)', fontSize: '1.125rem', fontWeight: 500, fontFamily: 'var(--font-display)' }}>
+              Generating PDF…
+            </p>
+            <p style={{ color: 'var(--fg-tertiary)', fontSize: '0.875rem', marginTop: 'var(--space-xs)' }}>
               {playlist?.name} · {songs.length} song{songs.length !== 1 ? 's' : ''}
             </p>
-            <p className="text-[#898989] text-xs mt-2">Loading Thai font…</p>
+            <p style={{ color: 'var(--fg-tertiary)', fontSize: '0.75rem', marginTop: 'var(--space-sm)' }}>
+              Loading Thai font…
+            </p>
           </>
         )}
         {!loading && !error && status === 'done' && (
           <>
-            <div className="text-4xl mb-4">✅</div>
-            <p className="text-[#fafafa] text-lg font-medium">Download started!</p>
-            <p className="text-[#898989] text-sm mt-1 mb-6">
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                margin: '0 auto var(--space-md)',
+                background: 'var(--accent-bg)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent)',
+                fontSize: '1.5rem',
+              }}
+            >
+              ✓
+            </div>
+            <p style={{ color: 'var(--fg-primary)', fontSize: '1.125rem', fontWeight: 500, fontFamily: 'var(--font-display)' }}>
+              Download started!
+            </p>
+            <p style={{ color: 'var(--fg-tertiary)', fontSize: '0.875rem', marginTop: 'var(--space-xs)', marginBottom: 'var(--space-xl)' }}>
               {playlist?.name}.pdf
             </p>
             <Link
               to={`/playlists/${id}`}
-              className="inline-block px-5 py-2 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:brightness-110 transition"
+              className="btn-primary"
+              style={{ fontSize: '0.875rem' }}
             >
               ← Back to playlist
             </Link>
@@ -74,12 +118,32 @@ export default function PdfExport() {
         )}
         {!loading && !error && status === 'error' && (
           <>
-            <div className="text-4xl mb-4">❌</div>
-            <p className="text-[#fafafa] text-lg font-medium">Export failed</p>
-            <p className="text-red-400 text-sm mt-1 mb-6">{errorMsg}</p>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                margin: '0 auto var(--space-md)',
+                background: 'var(--status-error-bg)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--status-error-text)',
+                fontSize: '1.5rem',
+              }}
+            >
+              ✕
+            </div>
+            <p style={{ color: 'var(--fg-primary)', fontSize: '1.125rem', fontWeight: 500, fontFamily: 'var(--font-display)' }}>
+              Export failed
+            </p>
+            <p style={{ color: 'var(--status-error-text)', fontSize: '0.875rem', marginTop: 'var(--space-xs)', marginBottom: 'var(--space-xl)' }}>
+              {errorMsg}
+            </p>
             <Link
               to={`/playlists/${id}`}
-              className="inline-block px-5 py-2 rounded-full bg-[#3ecf8e] text-[#0f0f0f] text-sm font-medium hover:brightness-110 transition"
+              className="btn-primary"
+              style={{ fontSize: '0.875rem' }}
             >
               ← Back to playlist
             </Link>
