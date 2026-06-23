@@ -5,6 +5,10 @@
 **Live Demo:** [klongchan-worship.vercel.app](https://klongchan-worship.vercel.app)
 
 ---
+<img width="1293" height="835" alt="image" src="https://github.com/user-attachments/assets/898cffb8-7f58-47e8-a773-d06947c6f1fc" />
+<img width="1255" height="825" alt="image" src="https://github.com/user-attachments/assets/75a5bf51-91c6-4dd3-8ce4-e5293f516cc1" />
+
+
 
 ## ✨ Features
 
