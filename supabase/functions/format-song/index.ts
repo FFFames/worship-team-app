@@ -60,8 +60,8 @@ const corsHeaders = {
 
 const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const MAX_IMAGES_PER_GROQ_REQUEST = 5;
-const CHORD_LINE_REGEX = /^[A-G][#b]?(?:maj|min|m|M|dim|aug|sus|add|#?b?\d+)*(?:\/[A-G][#b]?)?(?:\s+[A-G][#b]?(?:maj|min|m|M|dim|aug|sus|add|#?b?\d+)*(?:\/[A-G][#b]?)?)*$/;
-const SECTION_HEADER_REGEX = /^(Verse(?:\s+\d+)?|Prehook|Hook|Bridge|Intro|Outro|Instrumental|Tag)\s*:\s*$/i;
+const CHORD_TOKEN_REGEX = /^[A-G][#b]?(?:maj|min|m|M|dim|aug|sus|add|#?b?\d+)*(?:\/[A-G][#b]?)?$/;
+const SECTION_HEADER_REGEX = /^(Verse(?:\s+\d+)?|Prehook|Hook|Bridge|Intro|Outro|End|Instrumental|Tag)\s*:\s*$/i;
 const FALLBACK_REFUSAL: FormatSongResponse = {
     status: 'refused',
     reply: 'ฉันช่วยได้เฉพาะการแปลงคอร์ด/เนื้อเพลงให้อยู่ในรูปแบบมาตรฐานเท่านั้น',
@@ -114,6 +114,11 @@ function getInlineMarkerLabel(line: string): { label: string; lyrics: string } |
     return null;
 }
 
+function isChordLine(line: string): boolean {
+    const tokens = line.trim().split(/[\s|]+/).filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => CHORD_TOKEN_REGEX.test(token));
+}
+
 function getLastSectionLabel(lines: string[]): string | null {
     for (let index = lines.length - 1; index >= 0; index--) {
         const match = lines[index].trim().match(SECTION_HEADER_REGEX);
@@ -137,9 +142,9 @@ function removeDuplicateSectionHeadersAfterChords(lines: string[]): string[] {
             const next = lines[index + 1]?.trim() || '';
             const isDuplicateInsideSameSection =
                 activeSectionLabel.toLowerCase() === currentSectionLabel.toLowerCase() &&
-                CHORD_LINE_REGEX.test(previous) &&
+                isChordLine(previous) &&
                 next.length > 0 &&
-                !CHORD_LINE_REGEX.test(next) &&
+                !isChordLine(next) &&
                 !SECTION_HEADER_REGEX.test(next);
 
             if (isDuplicateInsideSameSection) {
@@ -170,7 +175,7 @@ function normalizeFormattedText(text: string): string {
         const lastSectionLabel = getLastSectionLabel(normalized);
 
         if (
-            CHORD_LINE_REGEX.test(current.trim()) &&
+            isChordLine(current) &&
             nextSectionMatch &&
             afterNextMarker &&
             nextSectionMatch[1].toLowerCase() === afterNextMarker.label.toLowerCase()
@@ -183,10 +188,10 @@ function normalizeFormattedText(text: string): string {
         }
 
         if (
-            CHORD_LINE_REGEX.test(current.trim()) &&
+            isChordLine(current) &&
             nextSectionMatch &&
             afterNext &&
-            !CHORD_LINE_REGEX.test(afterNext) &&
+            !isChordLine(afterNext) &&
             !SECTION_HEADER_REGEX.test(afterNext)
         ) {
             const nextSectionLabel = nextSectionMatch[1];
@@ -259,7 +264,7 @@ function buildSystemPrompt(): string {
         'Return only valid JSON with keys: status, reply, title, artist, formattedText, warnings.',
         'status must be either "formatted" or "refused".',
         'Use these exact section labels when present or obvious:',
-        'Verse -> Verse, Verse 2 -> Verse 2, Pre-Chorus/Prehook -> Prehook, Chorus/Hook -> Hook, Bridge -> Bridge, Intro -> Intro, Outro/Ending -> Outro, Interlude/Instrumental/Solo -> Instrumental.',
+        'Verse -> Verse, Verse 2 -> Verse 2, Pre-Chorus/Prehook -> Prehook, Chorus/Hook -> Hook, Bridge -> Bridge, Intro -> Intro, Outro/Outtro -> Outro, End/Ending -> End, Interlude/Instrumental/Solo -> Instrumental.',
         'Do not use symbolic markers like *, **, or ***.',
         'Thai chord charts often mark verses inline: "1. lyrics" means Verse 1 and "2. lyrics" means Verse 2. Remove the number marker from the lyric after creating the section.',
         'Thai chord charts often mark the hook inline with "*lyrics". Treat this as Hook and remove the leading * from the lyric.',

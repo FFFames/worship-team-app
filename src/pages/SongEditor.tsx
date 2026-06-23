@@ -59,6 +59,11 @@ function reconstructLine(tokens: ChordToken[]): string {
   return chars.join('')
 }
 
+/** Returns true for measure/bar chord notation such as "| G | Bm |" */
+function isBarChordLine(line: string): boolean {
+  return line.includes('|')
+}
+
 /** Draggable chord line — each chord token can be dragged horizontally */
 function DraggableChordLine({
   line,
@@ -174,6 +179,14 @@ function DraggableChordLine({
     },
     [tokens, sectionIndex, lineIndex, onChordMove]
   )
+
+  if (isBarChordLine(line.chords)) {
+    return (
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: 1.4, whiteSpace: 'pre', color: 'var(--accent)', fontWeight: 600 }}>
+        {line.chords}
+      </div>
+    )
+  }
 
   if (tokens.length === 0) {
     return (

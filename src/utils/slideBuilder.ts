@@ -25,6 +25,7 @@ const FALLBACK_SECTION_LABELS: Record<SectionType, string> = {
   bridge: 'Bridge',
   intro: 'Intro',
   outro: 'Outro',
+  end: 'End',
   instrumental: 'Instrumental',
   tag: 'Tag',
 }

@@ -67,10 +67,10 @@ export function transposeChordLine(
   useFlats: boolean = false,
 ): string {
   return line
-    .split(/(\s+)/)
+    .split(/(\s+|\|)/)
     .map((segment) => {
-      // Only transpose non-whitespace segments that look like chords
-      if (segment.trim() === '') return segment;
+      // Only transpose chord-like segments; preserve whitespace and bar lines.
+      if (segment.trim() === '' || segment === '|') return segment;
       return transposeChord(segment, semitones, useFlats);
     })
     .join('');

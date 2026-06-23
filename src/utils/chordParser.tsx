@@ -22,7 +22,7 @@ type InlineSectionMarker = {
 
 /** Regex matching a section header like Verse 1:, Prehook, [Hook], etc. */
 const SECTION_HEADER_REGEX =
-  /^\s*(?:\[(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Ending|Interlude|Instrumental|Solo|Tag)\s*:?\s*\]|(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Ending|Interlude|Instrumental|Solo|Tag)\s*:?)\s*$/i;
+  /^\s*(?:\[(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Outtro|End|Ending|Interlude|Instrumental|Solo|Tag)\s*:?\s*\]|(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Outtro|End|Ending|Interlude|Instrumental|Solo|Tag)\s*:?)\s*$/i;
 
 /**
  * Comprehensive chord token regex — matches a COMPLETE chord token.
@@ -63,8 +63,11 @@ function mapSectionHeader(raw: string): SectionHeader {
     case 'intro':
       return { type: 'intro', label: 'Intro' };
     case 'outro':
-    case 'ending':
+    case 'outtro':
       return { type: 'outro', label: 'Outro' };
+    case 'end':
+    case 'ending':
+      return { type: 'end', label: 'End' };
     case 'interlude':
     case 'instrumental':
     case 'solo':
@@ -129,7 +132,7 @@ export function getSectionDisplayLabel(section: Section): string {
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
   if (trimmed === '') return false;
-  const tokens = trimmed.split(/\s+/);
+  const tokens = trimmed.split(/[\s|]+/).filter(Boolean);
   return tokens.every((token) => CHORD_LINE_REGEX.test(token));
 }
 
@@ -238,7 +241,8 @@ export function detectKey(sections: Section[]): string {
   for (const section of sections) {
     for (const line of section.lines) {
       if (line.chords.trim() !== '') {
-        const firstToken = line.chords.trim().split(/\s+/)[0];
+        const firstToken = line.chords.trim().split(/[\s|]+/).find(Boolean);
+        if (!firstToken) continue;
         const rootMatch = firstToken.match(/^([A-G][#b]?)/);
         if (rootMatch) {
           return rootMatch[1];

@@ -14,6 +14,7 @@ export type SectionType =
   | 'bridge'
   | 'intro'
   | 'outro'
+  | 'end'
   | 'instrumental'
   | 'tag';
 
@@ -108,6 +109,7 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   bridge: 'Bridge',
   intro: 'Intro',
   outro: 'Outro',
+  end: 'End',
   instrumental: 'Instrumental',
   tag: 'Tag',
 };
@@ -120,6 +122,7 @@ export const LEGACY_SECTION_MARKERS: Record<SectionType, string> = {
   bridge: '***',
   intro: '[Intro]',
   outro: '[Outro]',
+  end: '[End]',
   instrumental: '[Interlude]',
   tag: '[Tag]',
 };
