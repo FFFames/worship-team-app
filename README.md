@@ -11,10 +11,19 @@
 ## ✨ Features
 
 ### Song Library
-- **Chord chart parser** — paste raw chord+lyrics text (ChordPro or two-line format) and the app auto-parses into structured sections (verse, chorus, bridge)
+- **Chord chart parser** — paste raw chord+lyrics text (ChordPro, two-line format, Thai worship notation, or bar notation like `| G | Bm |`) and the app auto-parses into structured sections
+- **Human-readable sections** — supports `Verse 1`, `Verse 2`, `Prehook`, `Hook`, `Bridge`, `Intro`, `Outro`, `End`, and `Instrumental`
+- **Section alias normalization** — converts common inputs like `Pre-Chorus` → `Prehook`, `Chorus` → `Hook`, `Outtro` → `Outro`, `End/Ending` → `End`, and `Solo/Interlude` → `Instrumental`
 - **Draggable chord alignment** — visually drag chord names to align them perfectly over lyrics, with positions saved to the database
 - **Auto key detection** — detects the musical key from parsed chords
 - **Transpose** — real-time transposition with ♯/♭ toggle
+
+### AI Song Formatter
+- **AI formatter sidebar** — available on Add/Edit Song for cleaning up pasted raw chord charts
+- **Text + image input** — supports typed text, pasted screenshots, uploaded JPG/PNG files, and multiple images
+- **OCR-first workflow** — runs browser OCR with `tesseract.js` first, then falls back to Groq Vision through a Supabase Edge Function
+- **Apply-and-edit loop** — formatted output is applied directly into the raw editor, then users can type follow-up instructions such as “แก้ Hook บรรทัดแรกให้คอร์ดเป็น F G Em Am F”
+- **Narrow scope** — the assistant only formats or edits chord/lyrics content and refuses unrelated requests
 
 <img width="1255" height="825" alt="image" src="https://github.com/user-attachments/assets/75a5bf51-91c6-4dd3-8ce4-e5293f516cc1" />
 
@@ -100,6 +109,7 @@ src/
 │   ├── Layout.tsx              # App shell with responsive nav
 │   ├── Sidebar.tsx             # Collapsible sidebar (desktop) / overlay (mobile)
 │   ├── ChordDisplay.tsx        # Renders chord+lyric lines with transposition
+│   ├── SongFormatterChatbot.tsx # AI chord/lyrics formatter sidebar
 │   ├── TransposeControls.tsx   # Key selector + transpose +/- buttons
 │   └── SongSearchModal.tsx     # Search modal for adding songs to playlists
 ├── pages/
@@ -114,6 +124,7 @@ src/
 │   └── PdfExport.tsx           # PDF generation page
 ├── hooks/
 │   ├── useSongs.ts             # CRUD operations for songs
+│   ├── useSongFormatter.ts     # OCR + Supabase Edge Function formatter client
 │   ├── usePlaylists.ts         # CRUD operations for playlists + playlist_songs
 │   └── useVideoBackgrounds.ts  # Video background management
 ├── store/
@@ -129,6 +140,9 @@ src/
 │   └── supabase.ts             # Supabase client initialization
 └── types/
     └── database.ts             # TypeScript interfaces for all DB tables
+supabase/
+└── functions/
+    └── format-song/            # Groq-powered chord/lyrics formatter
 ```
 
 ---
@@ -157,6 +171,17 @@ echo "VITE_SUPABASE_ANON_KEY=your-anon-key" >> .env.local
 # Then start the dev server
 npm run dev
 ```
+
+### AI Song Formatter Setup
+
+The Add/Edit Song page includes an AI sidebar that formats raw chord/lyrics text and printed chord-chart images. The Groq API key must be stored as a Supabase Edge Function secret, not as a browser `VITE_` variable.
+
+```bash
+supabase secrets set GROQ_API_KEY=your-groq-api-key
+supabase functions deploy format-song
+```
+
+Browser OCR uses `tesseract.js` first. If OCR is unclear or unavailable, the Edge Function falls back to Groq Vision. Successful results are applied to the raw editor immediately and shown with a “กรุณาตรวจสอบ” warning.
 
 ### Database Setup
 

@@ -7,12 +7,22 @@ import {
   type SongContent,
   type Section,
   type SectionType,
-  SECTION_MARKERS,
+  SECTION_LABELS,
 } from '../types/database';
 
-/** Regex matching a section header like [Verse 1], [Chorus], Chorus:, etc. */
+type SectionHeader = {
+  type: SectionType;
+  label: string;
+};
+
+type InlineSectionMarker = {
+  section: SectionHeader;
+  lyrics: string;
+};
+
+/** Regex matching a section header like Verse 1:, Prehook, [Hook], etc. */
 const SECTION_HEADER_REGEX =
-  /^\s*\[(Verse|Chorus|Pre-Chorus|Bridge|Hook|Intro|Outro|Interlude|Tag)\s*(\d*)\s*\]|^\s*(Verse|Chorus|Pre-Chorus|Bridge|Hook|Intro|Outro|Interlude|Tag)\s*(\d*)\s*:/i;
+  /^\s*(?:\[(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Outtro|End|Ending|Interlude|Instrumental|Solo|Tag)\s*:?\s*\]|(Verse|Verse\s+\d+|Pre[-\s]?Chorus|Prehook|Pre\s+Hook|Chorus|Hook|Bridge|Intro|Outro|Outtro|End|Ending|Interlude|Instrumental|Solo|Tag)\s*:?)\s*$/i;
 
 /**
  * Comprehensive chord token regex — matches a COMPLETE chord token.
@@ -26,33 +36,95 @@ const CHORD_LINE_REGEX =
   /^[A-G][#b]?(?:maj|min|m|M|dim|aug|sus|add|#?b?\d+)*(?:\/[A-G][#b]?)?$/;
 
 /**
- * Map raw header text to canonical SectionType.
- * Hook → chorus, Pre-Chorus → pre_chorus
+ * Map raw header text to canonical section data while preserving section numbers.
  */
-function mapSectionType(raw: string): SectionType {
-  const normalized = raw.toLowerCase().replace(/[-\s]/g, '_');
+function mapSectionHeader(raw: string): SectionHeader {
+  const cleaned = raw.trim().replace(/\s+/g, ' ');
+  const normalized = cleaned.toLowerCase().replace(/[-\s]/g, '');
+  const verseMatch = cleaned.match(/^verse\s*(\d+)?$/i);
+
+  if (verseMatch) {
+    const number = verseMatch[1]?.trim();
+    return {
+      type: 'verse',
+      label: number ? `Verse ${number}` : 'Verse',
+    };
+  }
+
   switch (normalized) {
-    case 'hook':
-      return 'chorus';
-    case 'pre_chorus':
+    case 'prehook':
     case 'prechorus':
-      return 'pre_chorus';
-    case 'verse':
-      return 'verse';
+      return { type: 'prehook', label: 'Prehook' };
     case 'chorus':
-      return 'chorus';
+    case 'hook':
+      return { type: 'hook', label: 'Hook' };
     case 'bridge':
-      return 'bridge';
+      return { type: 'bridge', label: 'Bridge' };
     case 'intro':
-      return 'intro';
+      return { type: 'intro', label: 'Intro' };
     case 'outro':
-      return 'outro';
+    case 'outtro':
+      return { type: 'outro', label: 'Outro' };
+    case 'end':
+    case 'ending':
+      return { type: 'end', label: 'End' };
     case 'interlude':
-      return 'interlude';
+    case 'instrumental':
+    case 'solo':
+      return { type: 'instrumental', label: 'Instrumental' };
     case 'tag':
-      return 'tag';
+      return { type: 'tag', label: 'Tag' };
     default:
-      return 'verse';
+      return { type: 'verse', label: SECTION_LABELS.verse };
+  }
+}
+
+function createSection(sectionHeader: SectionHeader): Section {
+  return {
+    type: sectionHeader.type,
+    label: sectionHeader.label,
+    marker: sectionHeader.label,
+    lines: [],
+  };
+}
+
+function getInlineSectionMarker(line: string): InlineSectionMarker | null {
+  const trimmed = line.trim();
+  const verseMatch = trimmed.match(/^(\d+)[.:]\s*(.+)$/);
+  if (verseMatch) {
+    return {
+      section: { type: 'verse', label: `Verse ${verseMatch[1]}` },
+      lyrics: verseMatch[2].trim(),
+    };
+  }
+
+  const hookMatch = trimmed.match(/^\*\s*(.+)$/);
+  if (hookMatch) {
+    return {
+      section: { type: 'hook', label: 'Hook' },
+      lyrics: hookMatch[1].trim(),
+    };
+  }
+
+  return null;
+}
+
+/** Resolve the display text for old and new section shapes. */
+export function getSectionDisplayLabel(section: Section): string {
+  if (section.label?.trim().length > 0) return section.label;
+  if (!section.marker || section.marker.trim().length === 0) return '';
+
+  switch (section.marker) {
+    case '*':
+      return 'Prehook';
+    case '**':
+      return 'Hook';
+    case '***':
+      return 'Bridge';
+    case '[Interlude]':
+      return 'Instrumental';
+    default:
+      return section.marker.replace(/^\[(.*)\]$/, '$1');
   }
 }
 
@@ -60,7 +132,7 @@ function mapSectionType(raw: string): SectionType {
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
   if (trimmed === '') return false;
-  const tokens = trimmed.split(/\s+/);
+  const tokens = trimmed.split(/[\s|]+/).filter(Boolean);
   return tokens.every((token) => CHORD_LINE_REGEX.test(token));
 }
 
@@ -78,7 +150,8 @@ export function parseChordLyrics(rawText: string): SongContent {
 
   let currentSection: Section = {
     type: 'verse',
-    marker: SECTION_MARKERS.verse,
+    label: SECTION_LABELS.verse,
+    marker: '',
     lines: [],
   };
 
@@ -94,15 +167,10 @@ export function parseChordLyrics(rawText: string): SongContent {
         sections.push(currentSection);
       }
 
-      const rawType =
-        headerMatch[1] || headerMatch[3] || 'Verse';
-      const sectionType = mapSectionType(rawType);
+      const rawType = headerMatch[1] || headerMatch[2] || 'Verse';
+      const sectionHeader = mapSectionHeader(rawType);
 
-      currentSection = {
-        type: sectionType,
-        marker: SECTION_MARKERS[sectionType],
-        lines: [],
-      };
+      currentSection = createSection(sectionHeader);
       i++;
       continue;
     }
@@ -111,10 +179,18 @@ export function parseChordLyrics(rawText: string): SongContent {
     if (isChordLine(line)) {
       const chords = line.trim();
       const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
+      const inlineMarker = getInlineSectionMarker(nextLine);
 
       // The next line is lyrics only if it's not a chord line or section header
       let lyrics = '';
-      if (
+      if (inlineMarker) {
+        if (currentSection.lines.length > 0) {
+          sections.push(currentSection);
+        }
+        currentSection = createSection(inlineMarker.section);
+        lyrics = inlineMarker.lyrics;
+        i += 2;
+      } else if (
         nextLine.trim() !== '' &&
         !isChordLine(nextLine) &&
         !nextLine.match(SECTION_HEADER_REGEX)
@@ -134,7 +210,16 @@ export function parseChordLyrics(rawText: string): SongContent {
     // Non-chord, non-header, non-empty line → lyrics only (no chords)
     const trimmed = line.trim();
     if (trimmed !== '' && !line.match(SECTION_HEADER_REGEX)) {
-      currentSection.lines.push({ chords: '', lyrics: trimmed });
+      const inlineMarker = getInlineSectionMarker(line);
+      if (inlineMarker) {
+        if (currentSection.lines.length > 0) {
+          sections.push(currentSection);
+        }
+        currentSection = createSection(inlineMarker.section);
+        currentSection.lines.push({ chords: '', lyrics: inlineMarker.lyrics });
+      } else {
+        currentSection.lines.push({ chords: '', lyrics: trimmed });
+      }
     }
 
     i++;
@@ -156,7 +241,8 @@ export function detectKey(sections: Section[]): string {
   for (const section of sections) {
     for (const line of section.lines) {
       if (line.chords.trim() !== '') {
-        const firstToken = line.chords.trim().split(/\s+/)[0];
+        const firstToken = line.chords.trim().split(/[\s|]+/).find(Boolean);
+        if (!firstToken) continue;
         const rootMatch = firstToken.match(/^([A-G][#b]?)/);
         if (rootMatch) {
           return rootMatch[1];

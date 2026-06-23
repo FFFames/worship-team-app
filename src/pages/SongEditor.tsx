@@ -12,8 +12,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSongEditorStore } from '../store/songEditorStore'
 import { useSong, useSongs } from '../hooks/useSongs'
-import { parseChordLyrics, detectKey } from '../utils/chordParser'
+import { parseChordLyrics, detectKey, getSectionDisplayLabel } from '../utils/chordParser'
 import type { SongLine } from '../types/database'
+import { SongFormatterChatbot, type SongFormatterApplyPayload } from '../components/SongFormatterChatbot'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -56,6 +57,11 @@ function reconstructLine(tokens: ChordToken[]): string {
     }
   }
   return chars.join('')
+}
+
+/** Returns true for measure/bar chord notation such as "| G | Bm |" */
+function isBarChordLine(line: string): boolean {
+  return line.includes('|')
 }
 
 /** Draggable chord line — each chord token can be dragged horizontally */
@@ -173,6 +179,14 @@ function DraggableChordLine({
     },
     [tokens, sectionIndex, lineIndex, onChordMove]
   )
+
+  if (isBarChordLine(line.chords)) {
+    return (
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', lineHeight: 1.4, whiteSpace: 'pre', color: 'var(--accent)', fontWeight: 600 }}>
+        {line.chords}
+      </div>
+    )
+  }
 
   if (tokens.length === 0) {
     return (
@@ -294,6 +308,26 @@ export default function SongEditor() {
       setParsedContent({ sections: newSections })
     },
     [parsedContent, setParsedContent]
+  )
+
+  const handleFormatterApply = useCallback(
+    (payload: SongFormatterApplyPayload) => {
+      const content = parseChordLyrics(payload.formattedText)
+      const key = detectKey(content.sections)
+
+      setRawText(payload.formattedText)
+      setParsedContent(content)
+      setDetectedKey(key)
+      setSelectedKey(key)
+
+      if (!title.trim() && payload.title.trim()) {
+        setTitle(payload.title.trim())
+      }
+      if (!artist.trim() && payload.artist.trim()) {
+        setArtist(payload.artist.trim())
+      }
+    },
+    [artist, setDetectedKey, setParsedContent, setRawText, title],
   )
 
   const handleSave = async () => {
@@ -422,7 +456,7 @@ export default function SongEditor() {
       </motion.div>
 
       {/* Body — editor + preview side by side on desktop */}
-      <div className="flex flex-col md:flex-row" style={{ gap: 'var(--space-lg)' }}>
+      <div className="flex flex-col xl:flex-row" style={{ gap: 'var(--space-lg)' }}>
         {/* Left side — raw text editor */}
         <div className="surface" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -439,6 +473,7 @@ export default function SongEditor() {
             style={{
               width: '100%',
               minHeight: '50vh',
+              flex: 1,
               padding: 'var(--space-md)',
               background: 'transparent',
               fontSize: '0.875rem',
@@ -479,9 +514,9 @@ export default function SongEditor() {
             {parsedContent && parsedContent.sections.length > 0 ? (
               parsedContent.sections.map((section, si) => (
                 <div key={si} style={{ marginBottom: 'var(--space-xl)' }}>
-                  {section.marker !== '' && (
+                  {getSectionDisplayLabel(section) !== '' && (
                     <div style={{ marginBottom: 'var(--space-sm)', fontSize: '0.75rem', fontWeight: 500, color: 'var(--accent)', fontFamily: 'var(--font-display)' }}>
-                      {section.marker}
+                      {getSectionDisplayLabel(section)}
                     </div>
                   )}
                   {section.lines.map((line, li) => (
@@ -509,6 +544,13 @@ export default function SongEditor() {
             )}
           </div>
         </div>
+
+        <SongFormatterChatbot
+          rawText={rawText}
+          title={title}
+          artist={artist}
+          onApply={handleFormatterApply}
+        />
       </div>
     </div>
   )

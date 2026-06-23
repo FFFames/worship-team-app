@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import type { PlaylistSong, Section } from '../types/database';
 import { transposeChordLine, transposeKey } from './transpose';
-import { parseChordLyrics } from './chordParser';
+import { getSectionDisplayLabel, parseChordLyrics } from './chordParser';
 
 const PAGE_W = 210; // A4 width mm
 const PAGE_H = 297; // A4 height mm
@@ -315,8 +315,9 @@ function buildSongHTML(
 
   // Sections
   for (const section of sections) {
-    if (section.marker) {
-      parts.push(`<div style="font-size: 10px; color: #999; font-style: italic; margin-top: 6px; margin-bottom: 3px;">${esc(section.marker)}</div>`);
+    const sectionLabel = getSectionDisplayLabel(section);
+    if (sectionLabel) {
+      parts.push(`<div style="font-size: 10px; color: #999; font-style: italic; margin-top: 6px; margin-bottom: 3px;">${esc(sectionLabel)}</div>`);
     }
 
     for (const line of section.lines) {

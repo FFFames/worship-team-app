@@ -6,6 +6,7 @@
  */
 
 import type { Section } from '../types/database';
+import { getSectionDisplayLabel } from '../utils/chordParser';
 import { transposeChordLine } from '../utils/transpose';
 
 export interface ChordDisplayProps {
@@ -31,7 +32,7 @@ export function ChordDisplay({
       {sections.map((section, si) => (
         <div key={si} style={{ marginBottom: 'var(--space-xl)' }}>
           {/* Section marker label */}
-          {section.marker !== '' && (
+          {getSectionDisplayLabel(section) !== '' && (
             <div
               style={{
                 marginBottom: 'var(--space-sm)',
@@ -42,7 +43,7 @@ export function ChordDisplay({
                 letterSpacing: '0.02em',
               }}
             >
-              {section.marker}
+              {getSectionDisplayLabel(section)}
             </div>
           )}
 

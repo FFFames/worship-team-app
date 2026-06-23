@@ -5,6 +5,7 @@
  * per-slide line limit are split into multiple slides, all within that section. */
 
 import type { Section, SectionType } from '../types/database'
+import { getSectionDisplayLabel } from './chordParser'
 
 /** A single presentation slide built from one section (or part of one). */
 export type Slide = {
@@ -17,14 +18,15 @@ export type Slide = {
 export const MAX_LINES_PER_SLIDE = 4
 
 /** Human-readable label for each section type. */
-const SECTION_LABELS: Record<SectionType, string> = {
+const FALLBACK_SECTION_LABELS: Record<SectionType, string> = {
   verse: 'Verse',
-  pre_chorus: 'Pre-Chorus',
-  chorus: 'Chorus',
+  prehook: 'Prehook',
+  hook: 'Hook',
   bridge: 'Bridge',
   intro: 'Intro',
   outro: 'Outro',
-  interlude: 'Interlude',
+  end: 'End',
+  instrumental: 'Instrumental',
   tag: 'Tag',
 }
 
@@ -48,7 +50,7 @@ export function buildSlides(sections: Section[]): Slide[] {
 
     if (lines.length === 0) continue
 
-    const sectionLabel = SECTION_LABELS[section.type] ?? section.type
+    const sectionLabel = getSectionDisplayLabel(section) || FALLBACK_SECTION_LABELS[section.type] || section.type
 
     for (let i = 0; i < lines.length; i += MAX_LINES_PER_SLIDE) {
       slides.push({
