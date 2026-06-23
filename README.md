@@ -5,6 +5,8 @@
 **Live Demo:** [klongchan-worship.vercel.app](https://klongchan-worship.vercel.app)
 
 ---
+<img width="1293" height="835" alt="image" src="https://github.com/user-attachments/assets/898cffb8-7f58-47e8-a773-d06947c6f1fc" />
+
 
 ## ✨ Features
 
@@ -23,10 +25,15 @@
 - **Apply-and-edit loop** — formatted output is applied directly into the raw editor, then users can type follow-up instructions such as “แก้ Hook บรรทัดแรกให้คอร์ดเป็น F G Em Am F”
 - **Narrow scope** — the assistant only formats or edits chord/lyrics content and refuses unrelated requests
 
+<img width="1255" height="825" alt="image" src="https://github.com/user-attachments/assets/75a5bf51-91c6-4dd3-8ce4-e5293f516cc1" />
+
 ### Playlist & Setlist Management
 - Create playlists for worship services with date and notes
 - **Drag-reorder songs** within a playlist (desktop) or use ↑↓ buttons (mobile)
 - Per-song transpose setting saved per playlist
+
+<img width="1287" height="751" alt="image" src="https://github.com/user-attachments/assets/b24849f2-acde-4888-90ab-c61ed30f5781" />
+
 
 ### Live Presentation (Dual-Screen)
 - **BroadcastChannel API** — control panel and fullscreen presenter run in separate windows, communicating in real-time
@@ -34,6 +41,9 @@
 - **Video backgrounds** — play MP4 video loops behind lyrics from Supabase Storage
 - **Welcome / Black screen** — quick toggles for service flow
 - **PDF export** — generate chord charts as downloadable PDFs with preserved chord positions
+
+<img width="1308" height="640" alt="image" src="https://github.com/user-attachments/assets/5e79c1eb-d317-408e-8bbb-1db63704c9cb" />
+
 
 ### Responsive Design
 - Full mobile/tablet support with hamburger navigation and bottom tab bar

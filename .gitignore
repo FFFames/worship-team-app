@@ -8,3 +8,5 @@ dist/
 .idea/
 .vercel
 *.mp4
+supabase/.temp/
+tsconfig.tsbuildinfo
