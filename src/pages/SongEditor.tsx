@@ -12,8 +12,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSongEditorStore } from '../store/songEditorStore'
 import { useSong, useSongs } from '../hooks/useSongs'
-import { parseChordLyrics, detectKey } from '../utils/chordParser'
+import { parseChordLyrics, detectKey, getSectionDisplayLabel } from '../utils/chordParser'
 import type { SongLine } from '../types/database'
+import { SongFormatterChatbot, type SongFormatterApplyPayload } from '../components/SongFormatterChatbot'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -296,6 +297,26 @@ export default function SongEditor() {
     [parsedContent, setParsedContent]
   )
 
+  const handleFormatterApply = useCallback(
+    (payload: SongFormatterApplyPayload) => {
+      const content = parseChordLyrics(payload.formattedText)
+      const key = detectKey(content.sections)
+
+      setRawText(payload.formattedText)
+      setParsedContent(content)
+      setDetectedKey(key)
+      setSelectedKey(key)
+
+      if (!title.trim() && payload.title.trim()) {
+        setTitle(payload.title.trim())
+      }
+      if (!artist.trim() && payload.artist.trim()) {
+        setArtist(payload.artist.trim())
+      }
+    },
+    [artist, setDetectedKey, setParsedContent, setRawText, title],
+  )
+
   const handleSave = async () => {
     if (!title.trim()) {
       setSaveError('กรุณาใส่ชื่อเพลง')
@@ -422,7 +443,7 @@ export default function SongEditor() {
       </motion.div>
 
       {/* Body — editor + preview side by side on desktop */}
-      <div className="flex flex-col md:flex-row" style={{ gap: 'var(--space-lg)' }}>
+      <div className="flex flex-col xl:flex-row" style={{ gap: 'var(--space-lg)' }}>
         {/* Left side — raw text editor */}
         <div className="surface" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -439,6 +460,7 @@ export default function SongEditor() {
             style={{
               width: '100%',
               minHeight: '50vh',
+              flex: 1,
               padding: 'var(--space-md)',
               background: 'transparent',
               fontSize: '0.875rem',
@@ -479,9 +501,9 @@ export default function SongEditor() {
             {parsedContent && parsedContent.sections.length > 0 ? (
               parsedContent.sections.map((section, si) => (
                 <div key={si} style={{ marginBottom: 'var(--space-xl)' }}>
-                  {section.marker !== '' && (
+                  {getSectionDisplayLabel(section) !== '' && (
                     <div style={{ marginBottom: 'var(--space-sm)', fontSize: '0.75rem', fontWeight: 500, color: 'var(--accent)', fontFamily: 'var(--font-display)' }}>
-                      {section.marker}
+                      {getSectionDisplayLabel(section)}
                     </div>
                   )}
                   {section.lines.map((line, li) => (
@@ -509,6 +531,13 @@ export default function SongEditor() {
             )}
           </div>
         </div>
+
+        <SongFormatterChatbot
+          rawText={rawText}
+          title={title}
+          artist={artist}
+          onApply={handleFormatterApply}
+        />
       </div>
     </div>
   )

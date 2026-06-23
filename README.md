@@ -148,6 +148,17 @@ echo "VITE_SUPABASE_ANON_KEY=your-anon-key" >> .env.local
 npm run dev
 ```
 
+### AI Song Formatter Setup
+
+The Add/Edit Song page includes an AI sidebar that formats raw chord/lyrics text and printed chord-chart images. The Groq API key must be stored as a Supabase Edge Function secret, not as a browser `VITE_` variable.
+
+```bash
+supabase secrets set GROQ_API_KEY=your-groq-api-key
+supabase functions deploy format-song
+```
+
+Browser OCR uses `tesseract.js` first. If OCR is unclear or unavailable, the Edge Function falls back to Groq Vision and returns a preview with “กรุณาตรวจสอบ” before anything is applied to the editor.
+
 ### Database Setup
 
 Run the migrations in `supabase/migrations/` against your Supabase project using the SQL Editor. This creates:

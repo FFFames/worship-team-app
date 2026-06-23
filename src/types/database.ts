@@ -9,17 +9,20 @@ export type SongLine = {
 /** Section types detected from chord chart headers */
 export type SectionType =
   | 'verse'
-  | 'pre_chorus'
-  | 'chorus'
+  | 'prehook'
+  | 'hook'
   | 'bridge'
   | 'intro'
   | 'outro'
-  | 'interlude'
+  | 'instrumental'
   | 'tag';
 
 /** A song section (verse, chorus, bridge, etc.) used by ChordDisplay */
 export type Section = {
   type: SectionType;
+  /** Human-readable section label, e.g. "Verse 1", "Hook", "Instrumental" */
+  label: string;
+  /** Legacy display marker kept for old saved songs while migrating away from *, **, *** */
   marker: string;
   lines: SongLine[];
 };
@@ -97,15 +100,27 @@ export type VideoBackground = {
   created_at: string;
 };
 
-/** Section type → marker mapping */
-export const SECTION_MARKERS: Record<SectionType, string> = {
+/** Section type → default human-readable label mapping */
+export const SECTION_LABELS: Record<SectionType, string> = {
   verse: '',
-  pre_chorus: '*',
-  chorus: '**',
+  prehook: 'Prehook',
+  hook: 'Hook',
+  bridge: 'Bridge',
+  intro: 'Intro',
+  outro: 'Outro',
+  instrumental: 'Instrumental',
+  tag: 'Tag',
+};
+
+/** Legacy section marker mapping for backwards-compatible rendering only */
+export const LEGACY_SECTION_MARKERS: Record<SectionType, string> = {
+  verse: '',
+  prehook: '*',
+  hook: '**',
   bridge: '***',
   intro: '[Intro]',
   outro: '[Outro]',
-  interlude: '[Interlude]',
+  instrumental: '[Interlude]',
   tag: '[Tag]',
 };
 
