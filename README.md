@@ -2,7 +2,7 @@
 
 **A real-time worship song management and live presentation platform** built for church worship teams. Manage songs with chord charts, organize setlists, transpose on the fly, and present lyrics with video backgrounds — all from a single app.
 
-**Live Demo:** [klongchan-worship.vercel.app](https://klongchan-worship.vercel.app)
+
 
 ---
 <img width="1293" height="835" alt="image" src="https://github.com/user-attachments/assets/898cffb8-7f58-47e8-a773-d06947c6f1fc" />
