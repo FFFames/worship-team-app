@@ -13,6 +13,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useSong, useSongs } from '../hooks/useSongs'
 import { ChordDisplay } from '../components/ChordDisplay'
 import { TransposeControls } from '../components/TransposeControls'
+import { YouTubeEmbed } from '../components/YouTubeEmbed'
 import { parseChordLyrics } from '../utils/chordParser'
 import type { Song } from '../types/database'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -282,6 +283,8 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
           />
         </div>
       </motion.div>
+
+      {song.youtube_url ? <YouTubeEmbed url={song.youtube_url} title={song.title} /> : null}
 
       {/* Song Content */}
       <motion.div

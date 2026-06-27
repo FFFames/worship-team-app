@@ -15,6 +15,7 @@ import { useSong, useSongs } from '../hooks/useSongs'
 import { parseChordLyrics, detectKey, getSectionDisplayLabel } from '../utils/chordParser'
 import type { SongLine } from '../types/database'
 import { SongFormatterChatbot, type SongFormatterApplyPayload } from '../components/SongFormatterChatbot'
+import { getYouTubeVideoId } from '../utils/youtube'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -250,6 +251,7 @@ export default function SongEditor() {
 
   const [title, setTitle] = useState('')
   const [artist, setArtist] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [selectedKey, setSelectedKey] = useState('C')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -267,6 +269,7 @@ export default function SongEditor() {
     if (song && isEditing && editingSongId === song.id) {
       setTitle(song.title)
       setArtist(song.artist ?? '')
+      setYoutubeUrl(song.youtube_url ?? '')
       setSelectedKey(song.original_key)
       setRawText(song.raw_content)
       const content = parseChordLyrics(song.raw_content)
@@ -339,6 +342,10 @@ export default function SongEditor() {
       setSaveError('กรุณาใส่เนื้อเพลง')
       return
     }
+    if (youtubeUrl.trim() && !getYouTubeVideoId(youtubeUrl)) {
+      setSaveError('ลิงก์ YouTube ไม่ถูกต้อง กรุณาใส่ลิงก์วิดีโอจาก YouTube')
+      return
+    }
 
     const contentToSave = parsedContent ?? parseChordLyrics(rawText)
     setSaving(true)
@@ -349,6 +356,7 @@ export default function SongEditor() {
         await updateSong(id, {
           title: title.trim(),
           artist: artist.trim() || null,
+          youtube_url: youtubeUrl.trim() || null,
           original_key: selectedKey,
           raw_content: rawText,
           sections: contentToSave.sections,
@@ -358,6 +366,7 @@ export default function SongEditor() {
         const newSong = await addSong({
           title: title.trim(),
           artist: artist.trim() || null,
+          youtube_url: youtubeUrl.trim() || null,
           original_key: selectedKey,
           raw_content: rawText,
           sections: contentToSave.sections,
@@ -447,6 +456,19 @@ export default function SongEditor() {
               ))}
             </select>
           </div>
+        </div>
+        <div>
+          <label className="field-label">ลิงก์เพลงใน YouTube</label>
+          <input
+            type="url"
+            value={youtubeUrl}
+            onChange={(event) => setYoutubeUrl(event.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
+            className="input-field"
+          />
+          <p style={{ fontSize: '0.75rem', color: 'var(--fg-tertiary)', margin: 'var(--space-xs) 0 0' }}>
+            รองรับลิงก์ YouTube, youtu.be, Shorts และ Live
+          </p>
         </div>
         {detectedKey && (
           <p style={{ fontSize: '0.8125rem', color: 'var(--fg-tertiary)', margin: 0 }}>

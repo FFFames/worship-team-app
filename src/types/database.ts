@@ -41,6 +41,7 @@ export type Song = {
   original_key: string;
   tempo: number | null;
   time_signature: string | null;
+  youtube_url: string | null;
   raw_content: string;
   sections: Section[] | null;
   user_id: string | null;
@@ -57,6 +58,7 @@ export type SongInsert = {
   original_key?: string;
   tempo?: number | null;
   time_signature?: string | null;
+  youtube_url?: string | null;
   raw_content?: string;
   sections?: Section[] | null;
   tags?: string[] | null;

@@ -53,6 +53,7 @@ export function useSongs() {
         original_key: song.original_key,
         tempo: song.tempo ?? 120,
         time_signature: song.time_signature ?? '4/4',
+        youtube_url: song.youtube_url ?? null,
         raw_content: song.raw_content,
         sections: song.sections ?? null,
         tags: song.tags ?? [],
@@ -72,7 +73,7 @@ export function useSongs() {
   const updateSong = useCallback(async (id: string, updates: Partial<SongInsert>): Promise<void> => {
     // Whitelist only fields that exist in the songs table
     const allowedFields: (keyof SongInsert)[] = [
-      'title', 'artist', 'original_key', 'tempo', 'time_signature',
+      'title', 'artist', 'original_key', 'tempo', 'time_signature', 'youtube_url',
       'raw_content', 'sections', 'tags', 'favorite',
     ]
     const safeUpdates: Record<string, unknown> = {}

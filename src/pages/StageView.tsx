@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
 import { ChordDisplay } from '../components/ChordDisplay'
+import { YouTubeEmbed } from '../components/YouTubeEmbed'
 import { parseChordLyrics } from '../utils/chordParser'
 import { transposeKey } from '../utils/transpose'
 import { motion } from 'framer-motion'
@@ -266,6 +267,8 @@ export default function StageView() {
                       </button>
                     </div>
                   </div>
+
+                  {song.youtube_url ? <YouTubeEmbed url={song.youtube_url} title={song.title} compact /> : null}
 
                   {/* Chord display */}
                   <ChordDisplay sections={song.sections ?? parseChordLyrics(song.raw_content).sections} transpose={transpose} center />
