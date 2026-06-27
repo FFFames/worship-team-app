@@ -110,7 +110,7 @@ export default function PresenterScreen() {
             {lyrics.split('\n').map((line, i) => (
               <p
                 key={i}
-                style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 300, color: 'white', lineHeight: 1.4, marginBottom: 'var(--space-sm)', fontFamily: 'var(--font-display)' }}
+                style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 300, color: 'white', lineHeight: 1.4, marginBottom: 'var(--space-sm)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap' }}
               >
                 {line}
               </p>
