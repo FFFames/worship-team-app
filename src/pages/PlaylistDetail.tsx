@@ -334,7 +334,7 @@ export default function PlaylistDetail() {
 
                     {/* Song info */}
                     <Link
-                      to={`/songs/${song.id}`}
+                      to={`/songs/${song.id}?fromPlaylist=${playlist.id}`}
                       style={{ flex: 1, minWidth: 0, textDecoration: 'none', borderRadius: 'var(--radius-sm)' }}
                       title={`เปิดเพลง ${song.title}`}
                     >

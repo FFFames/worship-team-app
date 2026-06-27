@@ -9,8 +9,9 @@
  */
 
 import { useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useSong, useSongs } from '../hooks/useSongs'
+import { usePlaylistInfo } from '../hooks/usePlaylists'
 import { ChordDisplay } from '../components/ChordDisplay'
 import { TransposeControls } from '../components/TransposeControls'
 import { YouTubeEmbed } from '../components/YouTubeEmbed'
@@ -85,6 +86,9 @@ function DeleteConfirmModal({
 export default function SongDetail({ song: songProp }: SongDetailProps) {
   const navigate = useNavigate()
   const { id: paramId } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const fromPlaylistId = searchParams.get('fromPlaylist') ?? undefined
+  const fromPlaylist = usePlaylistInfo(fromPlaylistId)
   const { song: fetchedSong, loading, error } = useSong(songProp ? undefined : paramId)
   const { deleteSong: deleteSongById, refresh } = useSongs()
 
@@ -142,10 +146,10 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
           <div style={{ textAlign: 'center' }}>
             <p style={{ fontSize: '1rem', marginBottom: 'var(--space-sm)', color: 'var(--status-error-text)', lineHeight: 1.6 }}>{error || 'ไม่พบเพลง'}</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(fromPlaylistId ? `/playlists/${fromPlaylistId}` : '/')}
               style={{ fontSize: '0.9375rem', textDecoration: 'underline', textDecorationThickness: '2px', textDecorationColor: 'var(--accent)', transition: 'color 150ms ease', color: 'var(--accent)', fontFamily: 'var(--font-display)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              กลับไปหน้าคลังเพลง
+              {fromPlaylistId ? `กลับไป ${fromPlaylist?.name ?? 'Playlist'}` : 'กลับไปหน้าคลังเพลง'}
             </button>
           </div>
         </div>
@@ -165,7 +169,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
         style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-xl)' }}
       >
         <Link
-          to="/"
+          to={fromPlaylistId ? `/playlists/${fromPlaylistId}` : '/'}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', color: 'var(--fg-tertiary)', textDecoration: 'none', fontSize: '0.875rem', fontFamily: 'var(--font-display)', transition: 'color 150ms var(--ease-out)' }}
           onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fg-primary)' }}
           onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fg-tertiary)' }}
@@ -173,7 +177,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
-          คลังเพลง
+          {fromPlaylistId ? `กลับไป ${fromPlaylist?.name ?? 'Playlist'}` : 'คลังเพลง'}
         </Link>
         <span style={{ color: 'var(--text-faint)' }}>/</span>
         <span style={{ color: 'var(--fg-secondary)', fontSize: '0.875rem', fontFamily: 'var(--font-display)' }}>{song.title}</span>
