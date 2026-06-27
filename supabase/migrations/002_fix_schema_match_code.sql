@@ -45,6 +45,7 @@ CREATE TABLE songs (
     original_key  text        NOT NULL DEFAULT 'C',
     tempo         integer,
     time_signature text,
+    youtube_url   text,
     raw_content   text        NOT NULL DEFAULT '',
     sections      jsonb,                          -- nullable; DbSongSection[] JSONB
     user_id       text,                           -- nullable; hardcoded 'default' in code
