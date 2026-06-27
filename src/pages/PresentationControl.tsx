@@ -343,7 +343,7 @@ export default function PresentationControl() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                 {allBlocks.map((block, idx) => {
                   const prev = allBlocks[idx - 1]
-                  const isNewSection = !prev || prev.sectionType !== block.sectionType
+                  const isNewSection = !prev || prev.sectionLabel !== block.sectionLabel
                   return (
                     <Fragment key={idx}>
                       {isNewSection && (
@@ -401,7 +401,8 @@ export default function PresentationControl() {
                           <div key={li} style={{
                             fontSize: '14px',
                             color: 'var(--fg-primary)',
-                            lineHeight: 1.6
+                            lineHeight: 1.6,
+                            whiteSpace: 'nowrap',
                           }}>
                             {line}
                           </div>
@@ -448,7 +449,8 @@ export default function PresentationControl() {
                         <div key={i} style={{
                           fontSize: '14px',
                           color: 'white',
-                          lineHeight: 1.6
+                          lineHeight: 1.6,
+                          whiteSpace: 'nowrap',
                         }}>
                           {line}
                         </div>

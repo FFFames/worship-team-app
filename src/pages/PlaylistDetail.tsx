@@ -99,10 +99,10 @@ export default function PlaylistDetail() {
 
   async function handleShare() {
     if (!playlist) return
+    const playlistUrl = new URL(`/playlists/${playlist.id}`, window.location.origin).toString()
     const shareData = {
       title: playlist.name,
-      text: `รายการเพลง ${playlist.name}`,
-      url: window.location.href,
+      url: playlistUrl,
     }
 
     try {
@@ -111,7 +111,7 @@ export default function PlaylistDetail() {
         return
       }
 
-      await navigator.clipboard.writeText(shareData.url)
+      await navigator.clipboard.writeText(playlistUrl)
       setShareCopied(true)
       window.setTimeout(() => setShareCopied(false), 2000)
     } catch (err) {
