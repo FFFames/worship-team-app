@@ -105,18 +105,26 @@ export default function PlaylistDetail() {
       url: playlistUrl,
     }
 
+    const copyPlaylistUrl = async () => {
+      await navigator.clipboard.writeText(playlistUrl)
+      setShareCopied(true)
+      window.setTimeout(() => setShareCopied(false), 2000)
+    }
+
     try {
       if (navigator.share) {
         await navigator.share(shareData)
         return
       }
 
-      await navigator.clipboard.writeText(playlistUrl)
-      setShareCopied(true)
-      window.setTimeout(() => setShareCopied(false), 2000)
+      await copyPlaylistUrl()
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      console.error('Failed to share playlist:', err)
+      try {
+        await copyPlaylistUrl()
+      } catch (copyError) {
+        console.error('Failed to share playlist:', copyError)
+      }
     }
   }
 
