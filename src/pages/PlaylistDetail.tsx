@@ -9,7 +9,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { usePlaylist, usePlaylists } from '../hooks/usePlaylists'
 import { SongSearchModal } from '../components/SongSearchModal'
 import { transposeKey } from '../utils/transpose'
@@ -80,6 +80,7 @@ export default function PlaylistDetail() {
   const [nameDraft, setNameDraft] = useState('')
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [shareCopied, setShareCopied] = useState(false)
 
   const TRANSPOSE_OFFSETS = [-2, -1, 0, 1, 2]
 
@@ -93,6 +94,29 @@ export default function PlaylistDetail() {
       setEditingName(false)
     } catch (err) {
       console.error('Failed to update name:', err)
+    }
+  }
+
+  async function handleShare() {
+    if (!playlist) return
+    const shareData = {
+      title: playlist.name,
+      text: `รายการเพลง ${playlist.name}`,
+      url: window.location.href,
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+        return
+      }
+
+      await navigator.clipboard.writeText(shareData.url)
+      setShareCopied(true)
+      window.setTimeout(() => setShareCopied(false), 2000)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      console.error('Failed to share playlist:', err)
     }
   }
 
@@ -198,6 +222,16 @@ export default function PlaylistDetail() {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+            <button onClick={handleShare} className="btn-secondary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              {shareCopied ? 'คัดลอกลิงก์แล้ว' : 'แชร์'}
+            </button>
             <button onClick={() => navigate(`/playlists/${playlistId}/stage`)} className="btn-secondary">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
@@ -299,14 +333,18 @@ export default function PlaylistDetail() {
                     </div>
 
                     {/* Song info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.9375rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--fg-primary)', fontFamily: 'var(--font-display)' }}>
+                    <Link
+                      to={`/songs/${song.id}`}
+                      style={{ flex: 1, minWidth: 0, textDecoration: 'none', borderRadius: 'var(--radius-sm)' }}
+                      title={`เปิดเพลง ${song.title}`}
+                    >
+                      <div style={{ fontSize: '0.9375rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', transition: 'color var(--duration-fast) var(--ease-out)' }}>
                         {song.title}
                       </div>
                       <div style={{ fontSize: '0.8125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--fg-tertiary)' }}>
                         {song.artist || 'Unknown Artist'}
                       </div>
-                    </div>
+                    </Link>
 
                     {/* Desktop: inline transpose controls */}
                     <div className="hidden md:flex items-center gap-1" style={{ gap: 2 }}>
