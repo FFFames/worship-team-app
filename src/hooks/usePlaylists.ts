@@ -78,6 +78,34 @@ export function usePlaylists() {
   return { playlists, loading, error, createPlaylist, updatePlaylist, deletePlaylist, refresh: fetchPlaylists }
 }
 
+/** Fetch only playlist metadata for lightweight origin breadcrumbs. */
+export function usePlaylistInfo(playlistId: string | undefined) {
+  const [playlist, setPlaylist] = useState<Playlist | null>(null)
+
+  useEffect(() => {
+    if (!playlistId) {
+      setPlaylist(null)
+      return
+    }
+
+    let cancelled = false
+    supabase
+      .from('playlists')
+      .select('*')
+      .eq('id', playlistId)
+      .single()
+      .then(({ data, error }) => {
+        if (!cancelled && !error) setPlaylist(data as Playlist)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [playlistId])
+
+  return playlist
+}
+
 export function usePlaylist(playlistId: string | undefined) {
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
   const [songs, setSongs] = useState<(PlaylistSong & { song?: Song })[]>([])
