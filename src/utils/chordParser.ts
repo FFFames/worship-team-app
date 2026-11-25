@@ -128,6 +128,81 @@ export function getSectionDisplayLabel(section: Section): string {
   }
 }
 
+export function getSectionSlideLabel(section: Section): string {
+  return section.slideLabel?.trim() || getSectionDisplayLabel(section);
+}
+
+export function sectionTypeFromLabel(label: string): SectionType {
+  return mapSectionHeader(label.trim().replace(/\s+\d+$/, '')).type;
+}
+
+/** Lyrics-only charts keep section labels and treat even chord-shaped text as lyrics. */
+const LYRICS_ONLY_HEADER = '[Lyrics only]';
+const CHORD_ROWS_HEADER = '[Chord rows]';
+const LYRICS_SECTION = /^\[Section(?: (.*))?\]$/;
+const EXACT_CHORD_ROW = /^\[Chords (".*")\]$/;
+
+export function isLyricsOnlyChart(text: string): boolean {
+  return text === LYRICS_ONLY_HEADER || text.startsWith(`${LYRICS_ONLY_HEADER}\n`) || text.startsWith(`${LYRICS_ONLY_HEADER}\r\n`);
+}
+
+export function isChordRowsChart(text: string): boolean {
+  return text === CHORD_ROWS_HEADER || text.startsWith(`${CHORD_ROWS_HEADER}\n`) || text.startsWith(`${CHORD_ROWS_HEADER}\r\n`);
+}
+
+export function formatLyricsOnly(sections: { label: string; lines: string[] }[]): string {
+  return [LYRICS_ONLY_HEADER, ...sections.flatMap(({ label, lines }) => [
+    label ? `[Section ${label.replace(/[\r\n]+/g, ' ').trim()}]` : '[Section]',
+    ...lines.map((line) => line.startsWith('\\') || LYRICS_SECTION.test(line) ? `\\${line}` : line),
+  ])].join('\n');
+}
+
+/** Keeps lyric lines and chord columns distinct when a schedule version becomes a library chart. */
+export function formatChordRows(sections: Section[]): string {
+  return [CHORD_ROWS_HEADER, ...sections.flatMap((section) => {
+    const label = getSectionDisplayLabel(section).replace(/[\r\n]+/g, ' ').trim();
+    return [label ? `[Section ${label}]` : '[Section]', ...section.lines.flatMap(({ lyrics, chords }) => [
+      ...(chords ? [`[Chords ${JSON.stringify(chords)}]`] : []),
+      lyrics.startsWith('\\') || LYRICS_SECTION.test(lyrics) || EXACT_CHORD_ROW.test(lyrics) ? `\\${lyrics}` : lyrics,
+    ])];
+  })].join('\n');
+}
+
+function parseLyricsOnly(lines: string[], exactChordRows = false): SongContent {
+  const sections: Section[] = [];
+  let section = createSection({ type: 'verse', label: '' });
+  let chords = '';
+
+  for (const line of lines) {
+    const header = line.match(LYRICS_SECTION);
+    if (header) {
+      if (chords) section.lines.push({ chords, lyrics: '' });
+      if (section.lines.some(({ lyrics, chords }) => lyrics.trim() || (exactChordRows && chords.trim()))) sections.push(section);
+      const label = header[1]?.trim() ?? '';
+      section = createSection({ type: mapSectionHeader(label.replace(/\s*\d+$/, '')).type, label });
+      chords = '';
+    } else {
+      const chord = exactChordRows ? line.match(EXACT_CHORD_ROW) : undefined;
+      if (chord) {
+        try {
+          const next = JSON.parse(chord[1]) as string;
+          if (chords) section.lines.push({ chords, lyrics: '' });
+          chords = next;
+          continue;
+        } catch { /* Keep malformed rows as literal lyrics. */ }
+      }
+      const escaped = line.startsWith('\\\\') || (line.startsWith('\\') && (LYRICS_SECTION.test(line.slice(1))
+        || (exactChordRows && EXACT_CHORD_ROW.test(line.slice(1)))));
+      section.lines.push({ chords, lyrics: escaped ? line.slice(1) : line });
+      chords = '';
+    }
+  }
+
+  if (chords) section.lines.push({ chords, lyrics: '' });
+  if (section.lines.some(({ lyrics, chords }) => lyrics.trim() || (exactChordRows && chords.trim()))) sections.push(section);
+  return { sections };
+}
+
 /** Returns true if the line looks like it contains chords rather than lyrics */
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
@@ -145,7 +220,9 @@ function isChordLine(line: string): boolean {
  * - Lines before any section header are treated as a verse
  */
 export function parseChordLyrics(rawText: string): SongContent {
-  const lines = rawText.split('\n');
+  const lines = rawText.split(/\r?\n/);
+  if (lines[0] === LYRICS_ONLY_HEADER) return parseLyricsOnly(lines.slice(1));
+  if (lines[0] === CHORD_ROWS_HEADER) return parseLyricsOnly(lines.slice(1), true);
   const sections: Section[] = [];
 
   let currentSection: Section = {

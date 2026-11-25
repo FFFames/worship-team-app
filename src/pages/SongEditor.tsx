@@ -12,13 +12,34 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSongEditorStore } from '../store/songEditorStore'
 import { useSong, useSongs } from '../hooks/useSongs'
-import { parseChordLyrics, detectKey, getSectionDisplayLabel } from '../utils/chordParser'
-import type { SongLine } from '../types/database'
+import { detectKey, formatChordRows, formatLyricsOnly, getSectionDisplayLabel, isChordRowsChart, isLyricsOnlyChart } from '../utils/chordParser'
+import type { Section, Song, SongInsert, SongLine } from '../types/database'
+import type { SongSlideLayout } from '../types/slideDesign'
 import { SongFormatterChatbot, type SongFormatterApplyPayload } from '../components/SongFormatterChatbot'
+import { SongLibrarySlideEditor } from '../components/SongLibrarySlideEditor'
+import { TextDocumentImport } from '../components/TextDocumentImport'
+import { reparseLibrarySong, songLibrarySections } from '../utils/songLibrarySlides'
 import { getYouTubeVideoId } from '../utils/youtube'
+import { songTagsFromText } from '../utils/songTags'
+import type { TextDocumentSlide } from '../utils/textDocument'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
+const songCreditFields = [
+  { key: 'copyright', label: 'ลิขสิทธิ์' },
+  { key: 'copyright_administrator', label: 'ผู้ดูแลลิขสิทธิ์' },
+  { key: 'ccli_number', label: 'เลข CCLI' },
+] as const
+
+function songDetails(song?: Song | null) {
+  return {
+    copyright: song?.copyright ?? '',
+    copyright_administrator: song?.copyright_administrator ?? '',
+    ccli_number: song?.ccli_number ?? '',
+    description: song?.description ?? '',
+    tags: song?.tags?.join('\n') ?? '',
+  }
+}
 
 /** All keys for dropdown */
 const KEY_OPTIONS = [
@@ -234,7 +255,7 @@ export default function SongEditor() {
   const isEditing = Boolean(id)
 
   const { song, loading: songLoading } = useSong(isEditing ? id : undefined)
-  const { addSong, updateSong } = useSongs()
+  const { addSong, updateSong } = useSongs(false)
 
   const {
     rawText,
@@ -251,12 +272,21 @@ export default function SongEditor() {
 
   const [title, setTitle] = useState('')
   const [artist, setArtist] = useState('')
+  const [details, setDetails] = useState(() => songDetails())
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [selectedKey, setSelectedKey] = useState('C')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [editingSlides, setEditingSlides] = useState(false)
+  const [layoutEdit, setLayoutEdit] = useState<SongSlideLayout | null>()
+  const [loopingEdit, setLoopingEdit] = useState<boolean>()
+  const master = layoutEdit === undefined ? song?.appearance?.slideLayout : layoutEdit ?? undefined
+  const looping = loopingEdit ?? song?.appearance?.looping
+  const parsedRaw = useRef('')
 
   useEffect(() => {
+    setLayoutEdit(undefined)
+    setLoopingEdit(undefined)
     if (isEditing && id) {
       setEditingSongId(id)
     }
@@ -269,10 +299,12 @@ export default function SongEditor() {
     if (song && isEditing && editingSongId === song.id) {
       setTitle(song.title)
       setArtist(song.artist ?? '')
+      setDetails(songDetails(song))
       setYoutubeUrl(song.youtube_url ?? '')
       setSelectedKey(song.original_key)
       setRawText(song.raw_content)
-      const content = parseChordLyrics(song.raw_content)
+      const content = { sections: songLibrarySections(song) }
+      parsedRaw.current = song.raw_content
       setParsedContent(content)
       const key = detectKey(content.sections)
       setDetectedKey(key)
@@ -285,15 +317,40 @@ export default function SongEditor() {
     }
   }, [detectedKey, isEditing])
 
+  const parseCurrentText = useCallback((text: string) => {
+    const current = useSongEditorStore.getState().parsedContent
+    if (current && parsedRaw.current === text) return current
+    const parsed = reparseLibrarySong(text, current)
+    parsedRaw.current = text
+    setParsedContent(parsed)
+    return parsed
+  }, [setParsedContent])
+
   const handleParse = useCallback(() => {
-    const content = parseChordLyrics(rawText)
-    setParsedContent(content)
+    const content = parseCurrentText(rawText)
     const key = detectKey(content.sections)
     setDetectedKey(key)
     if (!isEditing) {
       setSelectedKey(key)
     }
-  }, [rawText, setParsedContent, setDetectedKey, isEditing])
+  }, [rawText, parseCurrentText, setDetectedKey, isEditing])
+
+  function importLyrics(slides: TextDocumentSlide[]) {
+    const previous = parseCurrentText(rawText).sections
+    const added: Section[] = slides.map(({ text, runs }, index) => ({
+      type: 'verse', label: `สไลด์ ${previous.length + index + 1}`, marker: '', slideBreaks: [],
+      lines: text.split('\n').map((lyrics) => ({ lyrics, chords: '' })),
+      ...(runs ? { lyricRuns: runs } : {}),
+    }))
+    const sections = [...previous, ...added]
+    const text = isChordRowsChart(rawText) || previous.some((section) => section.lines.some(({ chords }) => chords))
+      ? formatChordRows(sections)
+      : formatLyricsOnly(sections.map((section) => ({ label: getSectionDisplayLabel(section), lines: section.lines.map(({ lyrics }) => lyrics) })))
+    parsedRaw.current = text
+    setRawText(text)
+    setParsedContent({ sections })
+    setSaveError(null)
+  }
 
   const handleChordMove = useCallback(
     (sectionIndex: number, lineIndex: number, tokens: ChordToken[]) => {
@@ -308,18 +365,22 @@ export default function SongEditor() {
           }),
         }
       })
+      if (isChordRowsChart(parsedRaw.current)) {
+        const text = formatChordRows(newSections)
+        parsedRaw.current = text
+        setRawText(text)
+      }
       setParsedContent({ sections: newSections })
     },
-    [parsedContent, setParsedContent]
+    [parsedContent, setParsedContent, setRawText]
   )
 
   const handleFormatterApply = useCallback(
     (payload: SongFormatterApplyPayload) => {
-      const content = parseChordLyrics(payload.formattedText)
+      const content = parseCurrentText(payload.formattedText)
       const key = detectKey(content.sections)
 
       setRawText(payload.formattedText)
-      setParsedContent(content)
       setDetectedKey(key)
       setSelectedKey(key)
 
@@ -330,7 +391,7 @@ export default function SongEditor() {
         setArtist(payload.artist.trim())
       }
     },
-    [artist, setDetectedKey, setParsedContent, setRawText, title],
+    [artist, parseCurrentText, setDetectedKey, setRawText, title],
   )
 
   const handleSave = async () => {
@@ -347,9 +408,24 @@ export default function SongEditor() {
       return
     }
 
-    const contentToSave = parsedContent ?? parseChordLyrics(rawText)
+    const contentToSave = parseCurrentText(rawText)
+    if (contentToSave.sections.length === 0) {
+      setSaveError('กรุณาใส่เนื้อเพลง')
+      return
+    }
     setSaving(true)
     setSaveError(null)
+    const savedDetails = songDetails(isEditing ? song : undefined)
+    const changes: SongInsert = {}
+    for (const field of [...songCreditFields.map(({ key }) => key), 'description'] as const) {
+      if (details[field] !== savedDetails[field]) changes[field] = details[field].trim()
+    }
+    if (details.tags !== savedDetails.tags) changes.tags = songTagsFromText(details.tags)
+    if (layoutEdit !== undefined || loopingEdit !== undefined) {
+      const { slideLayout: _original, ...sourceAppearance } = song?.appearance ?? {}
+      const nextAppearance = { ...sourceAppearance, ...(master ? { slideLayout: master } : {}), ...(looping !== undefined ? { looping } : {}) }
+      changes.appearance = Object.keys(nextAppearance).length ? nextAppearance : null
+    }
 
     try {
       if (isEditing && id) {
@@ -360,6 +436,7 @@ export default function SongEditor() {
           original_key: selectedKey,
           raw_content: rawText,
           sections: contentToSave.sections,
+          ...changes,
         })
         navigate(`/songs/${id}`)
       } else {
@@ -370,6 +447,7 @@ export default function SongEditor() {
           original_key: selectedKey,
           raw_content: rawText,
           sections: contentToSave.sections,
+          ...changes,
         })
         navigate(`/songs/${newSong.id}`)
       }
@@ -475,6 +553,29 @@ export default function SongEditor() {
             ตรวจพบคีย์: <span style={{ color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{detectedKey}</span>
           </p>
         )}
+        <details>
+          <summary className="cursor-pointer text-sm font-medium">ข้อมูลเพลงเพิ่มเติม</summary>
+          <div className="mt-3! grid gap-3 sm:grid-cols-2">
+            {songCreditFields.map(({ key, label }) => (
+              <div className="grid min-w-0 gap-1 text-sm" key={key}>
+                <label htmlFor={`song-detail-${key}`}>{label}</label>
+                <input id={`song-detail-${key}`} type="text" className="input-field" value={details[key]}
+                  onChange={(event) => setDetails({ ...details, [key]: event.target.value })} />
+              </div>
+            ))}
+            <div className="grid min-w-0 gap-1 text-sm sm:col-span-2">
+              <label htmlFor="song-description">คำอธิบายเพลง</label>
+              <textarea id="song-description" className="input-field" rows={3} value={details.description}
+                onChange={(event) => setDetails({ ...details, description: event.target.value })} />
+            </div>
+            <div className="grid min-w-0 gap-1 text-sm sm:col-span-2">
+              <label htmlFor="song-tag-lines">แท็กเพลง</label>
+              <span id="song-tag-lines-help" className="text-[var(--fg-secondary)]">ใส่หนึ่งแท็กต่อบรรทัด</span>
+              <textarea id="song-tag-lines" aria-describedby="song-tag-lines-help" className="input-field" rows={3}
+                value={details.tags} onChange={(event) => setDetails({ ...details, tags: event.target.value })} />
+            </div>
+          </div>
+        </details>
       </motion.div>
 
       {/* Body — editor + preview side by side on desktop */}
@@ -483,13 +584,29 @@ export default function SongEditor() {
         <div className="surface" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-subtle)' }}>
             <span className="section-label">ข้อความคอร์ด + เนื้อเพลง</span>
-            <button onClick={handleParse} className="btn-ghost" style={{ border: '1px solid var(--accent-muted)', color: 'var(--accent)' }}>
-              แปลง
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" className="btn-secondary" disabled={saving || !rawText.trim()} onClick={() => {
+                if (parseCurrentText(rawText).sections.length) {
+                  setSaveError(null)
+                  setEditingSlides(true)
+                } else setSaveError('กรุณาใส่เนื้อเพลง')
+              }}>จัดสไลด์ในคลังเพลง</button>
+              <button type="button" onClick={handleParse} className="btn-ghost" style={{ border: '1px solid var(--accent-muted)', color: 'var(--accent)' }}>
+                แปลง
+              </button>
+            </div>
           </div>
+          <fieldset className="px-4 pt-3" disabled={saving}>
+            <TextDocumentImport onImport={importLyrics} groupLabel="ท่อน" />
+          </fieldset>
           <textarea
+            aria-label="ข้อความคอร์ดและเนื้อเพลง"
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(event) => {
+              const text = event.target.value
+              setRawText(text)
+              if (isLyricsOnlyChart(rawText) || isLyricsOnlyChart(text) || isChordRowsChart(rawText) || isChordRowsChart(text)) parseCurrentText(text)
+            }}
             placeholder={`วางคอร์ด+เนื้อเพลงที่นี่...\n\nตัวอย่าง:\nC        G          Am       F\nAmazing grace how sweet the sound\n\nหรือ ChordPro format:\n[C]Amazing [G]grace [Am]how [F]sweet`}
             spellCheck={false}
             style={{
@@ -507,6 +624,16 @@ export default function SongEditor() {
               color: 'var(--fg-primary)',
             }}
           />
+          {isLyricsOnlyChart(rawText) && (
+            <p className="px-4 pb-3 text-sm text-[var(--fg-secondary)]">
+              โหมดเนื้อร้อง ใช้ [Section ชื่อท่อน] เพื่อเริ่มท่อนใหม่
+            </p>
+          )}
+          {isChordRowsChart(rawText) && (
+            <p className="px-4 pb-3 text-sm text-[var(--fg-secondary)]">
+              ใช้ [Section ชื่อท่อน] เพื่อเริ่มท่อนใหม่ และ [Chords "C G"] ไว้เหนือบรรทัดเนื้อร้องเพื่อระบุคอร์ด
+            </p>
+          )}
         </div>
 
         {/* Right side — live preview with draggable chords */}
@@ -574,6 +701,14 @@ export default function SongEditor() {
           onApply={handleFormatterApply}
         />
       </div>
+      {editingSlides && parsedContent?.sections.length ? <SongLibrarySlideEditor sections={parsedContent.sections}
+        appearance={{ ...song?.appearance, slideLayout: master, looping }} onClose={() => setEditingSlides(false)}
+        onApply={(sections, nextMaster, nextLooping) => {
+          setParsedContent({ sections })
+          if (nextMaster !== master) setLayoutEdit(nextMaster ?? null)
+          if (nextLooping !== looping) setLoopingEdit(nextLooping)
+          setEditingSlides(false)
+        }} /> : null}
     </div>
   )
 }

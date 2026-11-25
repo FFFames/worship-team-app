@@ -38,6 +38,32 @@ function LogoMark() {
   )
 }
 
+function ScriptureIcon({ size }: { size: number }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size}>
+      <path d="M12 7c-2-2-5-3-9-2v14c4-1 7 0 9 2 2-2 5-3 9-2V5c-4-1-7 0-9 2zm0 0v14" />
+    </svg>
+  )
+}
+
+function MediaIcon({ size }: { size: number }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="m10 9 5 3-5 3z" />
+    </svg>
+  )
+}
+
+function SlideIcon({ size }: { size: number }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size}>
+      <rect x="5" y="3" width="16" height="14" rx="2" />
+      <path d="M3 7v12a2 2 0 0 0 2 2h12M9 8h8m-8 4h5" />
+    </svg>
+  )
+}
+
 /** Desktop nav tab with icon + animated active pill */
 function NavTab({ to, children, icon }: { to: string; children: React.ReactNode; icon: React.ReactNode }) {
   return (
@@ -78,8 +104,9 @@ function BottomTab({ to, children, icon }: { to: string; children: React.ReactNo
         flexDirection: 'column',
         alignItems: 'center',
         gap: 2,
-        minWidth: 64,
-        padding: 'var(--space-xs) var(--space-sm)',
+        flex: 1,
+        minWidth: 0,
+        padding: 'var(--space-xs) 2px',
         borderRadius: 'var(--radius-md)',
         textDecoration: 'none',
         transition: 'color var(--duration-fast) var(--ease-out)',
@@ -174,6 +201,9 @@ export function Layout() {
             >
               Playlists
             </NavTab>
+            <NavTab to="/scripture" icon={<ScriptureIcon size={17} />}>พระคัมภีร์</NavTab>
+            <NavTab to="/media" icon={<MediaIcon size={17} />}>คลังสื่อ</NavTab>
+            <NavTab to="/designs" icon={<SlideIcon size={17} />}>สไลด์</NavTab>
             <NavTab
               to="/playlists?present=true"
               icon={
@@ -246,6 +276,9 @@ export function Layout() {
           >
             Playlists
           </BottomTab>
+          <BottomTab to="/scripture" icon={<ScriptureIcon size={22} />}>พระคัมภีร์</BottomTab>
+          <BottomTab to="/media" icon={<MediaIcon size={22} />}>คลังสื่อ</BottomTab>
+          <BottomTab to="/designs" icon={<SlideIcon size={22} />}>สไลด์</BottomTab>
           <BottomTab
             to="/playlists?present=true"
             icon={

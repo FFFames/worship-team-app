@@ -1,6 +1,6 @@
 /** Utilities for validating YouTube URLs and converting them to privacy-enhanced embeds. */
 
-const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
+export const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
 const YOUTUBE_HOSTS = new Set([
   'youtube.com',
   'www.youtube.com',

@@ -1,0 +1,13 @@
+{
+  "name": "worshipteam-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "build:ndi": "node build-ndi.cjs",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.4.1"
+  }
+}

@@ -10,15 +10,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePlaylist } from '../hooks/usePlaylists'
+import { useOutputSettings } from '../hooks/useOutputSettings'
 import { ChordDisplay } from '../components/ChordDisplay'
 import { YouTubeEmbed } from '../components/YouTubeEmbed'
 import { parseChordLyrics } from '../utils/chordParser'
+import { outputInsets } from '../utils/outputSettings'
+import { songForPlaylistEntry } from '../utils/playlistCueEditing'
 import { transposeKey } from '../utils/transpose'
 import { motion } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 export default function StageView() {
+  const { stage: margins } = useOutputSettings()
   const { id } = useParams<{ id: string }>()
   const { playlist, songs, loading, error, setTranspose } = usePlaylist(id)
   const [autoScroll, setAutoScroll] = useState(false)
@@ -103,12 +107,11 @@ export default function StageView() {
   return (
     <div
       ref={mainRef}
+      data-output="stage"
       style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        ...outputInsets(margins),
+        boxShadow: '0 0 0 100vmax black',
         overflowY: 'auto',
         overflowX: 'hidden',
         background: 'var(--bg-primary)',
@@ -140,11 +143,14 @@ export default function StageView() {
           <h1 style={{ fontSize: '0.875rem', fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--fg-secondary)', margin: 0, fontFamily: 'var(--font-display)' }}>
             {playlist?.name}
           </h1>
+          <Link to="/settings/output" target="_blank" rel="noopener" className="text-xs text-[var(--fg-secondary)]">ตั้งค่าจอ</Link>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             {songs.map((ps, idx) => {
-              const song = ps.song
-              if (!song) return null
+              const song = songForPlaylistEntry(ps)
+              const cue = ps.cue
+              if (!song && !cue) return null
+              const label = song?.title ?? cue?.label ?? 'รายการนำเข้า'
               return (
                 <button
                   key={ps.id}
@@ -166,9 +172,9 @@ export default function StageView() {
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-prominent)'; e.currentTarget.style.color = 'var(--fg-primary)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--fg-secondary)' }}
-                  title={song.title}
+                  title={label}
                 >
-                  {idx + 1}. {song.title}
+                  {idx + 1}. {label}
                 </button>
               )
             })}
@@ -214,8 +220,35 @@ export default function StageView() {
             }}
           >
             {songs.map((ps, idx) => {
-              const song = ps.song
-              if (!song) return null
+              const song = songForPlaylistEntry(ps)
+              const cue = ps.cue
+              if (!song && !cue) return null
+
+              if (!song) {
+                return (
+                  <motion.article
+                    key={ps.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05, ease: easeOutExpo }}
+                    id={`song-${ps.id}`}
+                    style={{ scrollMarginTop: 72, border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)', background: 'var(--bg-secondary)' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                      <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', color: 'var(--fg-tertiary)' }}>{idx + 1}</span>
+                      <h2 style={{ fontSize: '1.375rem', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>{cue?.label ?? 'รายการนำเข้า'}</h2>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--fg-tertiary)', textTransform: 'uppercase' }}>{cue?.kind ?? 'unknown'}</span>
+                    </div>
+                    {cue?.warnings?.map((warning) => <p key={warning} style={{ color: 'var(--status-warning-text)', fontSize: '0.8rem' }}>{warning}</p>)}
+                    {cue?.slides?.length ? cue.slides.map((slide, slideIndex) => (
+                      <section key={`${ps.id}-${slideIndex}`} style={{ marginBottom: 'var(--space-lg)' }}>
+                        {slide.label && <h3 style={{ color: 'var(--accent)', fontSize: '0.8rem', marginBottom: 'var(--space-xs)' }}>{slide.label}</h3>}
+                        {slide.lines.map((line, lineIndex) => <p key={`${ps.id}-${slideIndex}-${lineIndex}`} style={{ margin: 0, color: 'var(--fg-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{line}</p>)}
+                      </section>
+                    )) : <p style={{ color: 'var(--fg-tertiary)' }}>ไม่มีข้อความสไลด์สำหรับรายการนี้</p>}
+                  </motion.article>
+                )
+              }
 
               const transpose = ps.transpose ?? 0
               const transposedKey =

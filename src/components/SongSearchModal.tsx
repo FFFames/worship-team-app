@@ -1,190 +1,179 @@
-/** SongSearchModal — modal dialog for searching and adding songs to a playlist
- *
- * Uses CSS variable tokens (no hardcoded hex). Animated entrance via
- * Framer Motion; closes on backdrop click or Escape.
- */
+/** Finds library songs and previews their lyrics before adding them to a playlist. */
 
-import { useEffect } from 'react'
-import { useSongs } from '../hooks/useSongs'
-import { motion, AnimatePresence } from 'framer-motion'
-
-const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useLibraryCollections } from '../hooks/useCollectionFilter'
+import { useSong, useSongs } from '../hooks/useSongs'
+import { getSectionDisplayLabel, parseChordLyrics } from '../utils/chordParser'
+import { prepareSongCollectionFilter, type CollectionSong } from '../utils/songCollectionRules'
+import { LibraryCollectionFilter } from './LibraryCollectionFilter'
 
 interface SongSearchModalProps {
   open: boolean
   onClose: () => void
-  onAdd: (songId: string) => void
+  onAdd: (songId: string) => Promise<void>
   existingSongIds: Set<string>
 }
 
-export function SongSearchModal({ open, onClose, onAdd, existingSongIds }: SongSearchModalProps) {
-  const { songs, loading, searchQuery, setSearchQuery } = useSongs()
+function SongLyricsPreview({ songId }: { songId: string }) {
+  const { song, loading, error } = useSong(songId)
+  if (loading) return <p role="status">กำลังโหลดเนื้อเพลง…</p>
+  if (error || !song) return <p role="alert">เปิดเนื้อเพลงไม่สำเร็จ</p>
 
-  // Close on Escape
+  const sections = (song.sections ?? parseChordLyrics(song.raw_content).sections).flatMap((section) => {
+    const lyrics = section.lines.map((line) => line.lyrics).join('\n').trim()
+    return lyrics ? [{ label: getSectionDisplayLabel(section), lyrics }] : []
+  })
+  if (!sections.length) return <p>เพลงนี้ยังไม่มีเนื้อเพลง</p>
+  return (
+    <div className="grid gap-3">
+      {sections.map(({ label, lyrics }, index) => (
+        <div key={index} className="min-w-0">
+          {label && <p className="text-sm font-medium text-[var(--fg-secondary)]">{label}</p>}
+          <p className="whitespace-pre-wrap wrap-anywhere">{lyrics}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function SongSearchModal({ open, onClose, onAdd, existingSongIds }: SongSearchModalProps) {
+  const { options } = useLibraryCollections('songs', open)
+  const [collectionId, setCollectionId] = useState('')
+  const [searchScope, setSearchScope] = useState<'metadata' | 'lyrics'>('metadata')
+  const selected = options.find((option) => option.id === collectionId)
+  const collection = useMemo(() => selected && prepareSongCollectionFilter(selected.leaves), [selected])
+  const { songs, loading, error, searchQuery, setSearchQuery } = useSongs(open, searchScope, {
+    collectionDetails: collection?.needsDetails,
+  })
+  const results = useMemo(() => collection ? songs.filter(collection.includesSong) : songs, [collection, songs])
+
+  const [previewId, setPreviewId] = useState<string>()
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [announcement, setAnnouncement] = useState('')
+  const dialog = useRef<HTMLDialogElement>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
+  const id = useId()
+
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+    const element = dialog.current
+    element?.showModal()
+    searchInput.current?.focus()
+    return () => { element?.close() }
+  }, [open])
 
-  function handleAdd(songId: string) {
-    onAdd(songId)
+  function close() {
+    if (adding) return
+    dialog.current?.close()
+    setPreviewId(undefined)
+    setAddError('')
+    setAnnouncement('')
+    onClose()
   }
 
+  async function handleAdd(song: CollectionSong) {
+    if (adding) return
+    setAddError('')
+    setAnnouncement('')
+    setAdding(true)
+    try {
+      await onAdd(song.id)
+      setAnnouncement(`เพิ่ม ${song.title} ลงในเพลย์ลิสต์แล้ว`)
+    } catch {
+      setAddError('เพิ่มเพลงไม่ได้ กรุณาลองอีกครั้ง')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  if (!open) return null
+
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: easeOutExpo }}
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(3px)', padding: 'var(--space-md)' }}
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ duration: 0.25, ease: easeOutExpo }}
-            className="w-full max-w-lg overflow-hidden"
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-standard)',
-              borderRadius: 'var(--radius-xl)',
-              boxShadow: 'var(--shadow-float)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 'var(--space-md) var(--space-lg)',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-            >
-              <h2 style={{ fontSize: '1.0625rem', fontWeight: 600, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                Add Song
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid transparent',
-                  background: 'transparent',
-                  color: 'var(--fg-tertiary)',
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  transition: 'all var(--duration-fast) var(--ease-out)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-tertiary)'
-                  e.currentTarget.style.color = 'var(--fg-primary)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--fg-tertiary)'
-                }}
-              >
-                ✕
-              </button>
+    <dialog ref={dialog} aria-labelledby={`${id}-title`}
+      className="surface fixed inset-0 m-auto! w-[min(38rem,calc(100%-1rem))] max-w-none overflow-hidden text-[var(--fg-primary)] backdrop:bg-black/70"
+      onCancel={(event) => { event.preventDefault(); close() }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return
+        const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect()
+        if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) close()
+      }}>
+      <div className="flex max-h-[min(44rem,calc(100dvh-1rem))] min-h-0 flex-col">
+        <header className="grid shrink-0 gap-3 border-b border-[var(--border-subtle)] p-4!">
+          <div className="flex items-center justify-between gap-2">
+            <h2 id={`${id}-title`}>เพิ่มเพลงในเพลย์ลิสต์</h2>
+            <button type="button" className="btn-secondary shrink-0" disabled={adding} onClick={close}>ปิด</button>
+          </div>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="grid min-w-0 gap-1">
+              ค้นหาเพลง
+              <input ref={searchInput} type="search" value={searchQuery} onChange={(event) => {
+                setSearchQuery(event.target.value)
+                setPreviewId(undefined)
+              }} className="input-field" />
+            </label>
+            <div className="grid min-w-0 gap-1">
+              <label htmlFor={`${id}-scope`}>ค้นหาจาก</label>
+              <select id={`${id}-scope`} value={searchScope} className="input-field"
+                onChange={(event) => {
+                  setSearchScope(event.target.value === 'lyrics' ? 'lyrics' : 'metadata')
+                  setPreviewId(undefined)
+                }}>
+                <option value="metadata">ชื่อเพลงหรือศิลปิน</option>
+                <option value="lyrics">เนื้อเพลง</option>
+              </select>
             </div>
+          </div>
+          <LibraryCollectionFilter label="กลุ่มเพลง" filter={{ options, selected, select: (value) => {
+            setCollectionId(value)
+            setPreviewId(undefined)
+          } }} />
+        </header>
 
-            {/* Search */}
-            <div style={{ padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by title or artist..."
-                className="input-field"
-                style={{ fontSize: '0.9375rem' }}
-                autoFocus
-              />
-            </div>
-
-            {/* Results */}
-            <div style={{ maxHeight: 340, overflowY: 'auto' }}>
-              {loading && (
-                <div style={{ padding: 'var(--space-2xl) var(--space-lg)', textAlign: 'center', color: 'var(--fg-tertiary)', fontSize: '0.875rem' }}>
-                  Searching...
-                </div>
-              )}
-
-              {!loading && songs.length === 0 && (
-                <div style={{ padding: 'var(--space-2xl) var(--space-lg)', textAlign: 'center', color: 'var(--fg-tertiary)', fontSize: '0.875rem' }}>
-                  {searchQuery ? 'No songs found' : 'Type to search for songs'}
-                </div>
-              )}
-
-              {!loading &&
-                songs.map((song) => {
-                  const isAdded = existingSongIds.has(song.id)
-                  return (
-                    <div
-                      key={song.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 'var(--space-md)',
-                        padding: 'var(--space-sm) var(--space-lg)',
-                        borderBottom: '1px solid var(--border-subtle)',
-                        cursor: 'pointer',
-                        transition: 'background var(--duration-fast) var(--ease-out)',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-tertiary)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.9375rem', fontWeight: 500, color: 'var(--fg-primary)', fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {song.title}
-                        </div>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--fg-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {song.artist || 'Unknown Artist'} · Key of {song.original_key}
-                        </div>
+        {addError && <p role="alert" className="px-4! pt-2! text-sm text-[var(--status-error-text)]">{addError}</p>}
+        <p role="status" className={announcement ? 'px-4! pt-2! text-sm text-[var(--accent)]' : 'sr-only'}>{announcement}</p>
+        <div className="min-h-0 overflow-y-auto">
+          {loading && <p role="status" className="p-4! text-[var(--fg-secondary)]">กำลังค้นหาเพลง…</p>}
+          {!loading && error && <p role="alert" className="p-4! text-[var(--status-error-text)]">โหลดรายการเพลงไม่ได้</p>}
+          {!loading && !error && !results.length && (
+            <p className="p-4! text-[var(--fg-secondary)]" role="status">
+              {searchQuery.trim() ? 'ไม่พบเพลงที่ตรงกับคำค้น' : selected ? 'ยังไม่มีเพลงจากกลุ่มนี้ในคลัง' : 'ยังไม่มีเพลงในคลัง'}
+            </p>
+          )}
+          {!loading && !error && results.length > 0 && (
+            <ul className="divide-y divide-[var(--border-subtle)]" aria-label="ผลการค้นหาเพลง">
+              {results.map((song) => {
+                const isPreview = previewId === song.id
+                const addLabel = existingSongIds.has(song.id) ? 'เพิ่มอีกครั้ง' : 'เพิ่ม'
+                const previewLabel = isPreview ? 'ซ่อนเนื้อเพลง' : 'ดูเนื้อเพลง'
+                return (
+                  <li key={song.id} className="grid min-w-0 gap-2 px-4! py-3!">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <div className="min-w-0 flex-[1_0_12rem]">
+                        <p className="font-medium wrap-anywhere">{song.title}</p>
+                        <p className="text-sm text-[var(--fg-secondary)] wrap-anywhere">
+                          {song.artist && `${song.artist} · `}คีย์ {song.original_key}
+                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => (isAdded ? undefined : handleAdd(song.id))}
-                        disabled={isAdded}
-                        style={{
-                          flexShrink: 0,
-                          padding: 'var(--space-xs) var(--space-md)',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          fontFamily: 'var(--font-display)',
-                          borderRadius: 'var(--radius-full)',
-                          cursor: isAdded ? 'not-allowed' : 'pointer',
-                          border: isAdded ? '1px solid var(--border-subtle)' : '1px solid var(--accent)',
-                          background: isAdded ? 'var(--bg-tertiary)' : 'var(--accent)',
-                          color: isAdded ? 'var(--fg-tertiary)' : 'oklch(0.18 0.02 156)',
-                          transition: 'all var(--duration-fast) var(--ease-out)',
-                        }}
-                      >
-                        {isAdded ? 'Added' : 'Add'}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="btn-secondary min-h-10" aria-expanded={isPreview}
+                          aria-label={`${previewLabel} ${song.title}`}
+                          onClick={() => setPreviewId(isPreview ? undefined : song.id)}>{previewLabel}</button>
+                        <button type="button" className="btn-secondary min-h-10 aria-disabled:cursor-wait aria-disabled:opacity-60"
+                          aria-disabled={adding}
+                          aria-label={`${addLabel} ${song.title}`} onClick={() => void handleAdd(song)}>{addLabel}</button>
+                      </div>
                     </div>
-                  )
-                })}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+                    {isPreview && <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3!">
+                      <SongLyricsPreview songId={song.id} />
+                    </div>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </dialog>
   )
 }

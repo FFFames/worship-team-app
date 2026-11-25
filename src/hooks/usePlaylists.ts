@@ -1,8 +1,10 @@
 /** Hooks for fetching and managing playlists and their songs using Supabase */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Playlist, PlaylistInsert, PlaylistSong, Song } from '../types/database'
+import type { Playlist, PlaylistCue, PlaylistInsert, PlaylistSong } from '../types/database'
+import { deleteScheduleMedia } from '../utils/scheduleMedia'
+import { isLegacyGlobalThemeEntry } from '../utils/easyWorshipScheduleThemes'
 
 export function usePlaylists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
@@ -73,6 +75,7 @@ export function usePlaylists() {
 
     if (sbError) throw sbError
     setPlaylists((prev) => prev.filter((p) => p.id !== id))
+    await deleteScheduleMedia(id).catch(() => {})
   }, [])
 
   return { playlists, loading, error, createPlaylist, updatePlaylist, deletePlaylist, refresh: fetchPlaylists }
@@ -108,11 +111,12 @@ export function usePlaylistInfo(playlistId: string | undefined) {
 
 export function usePlaylist(playlistId: string | undefined) {
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
-  const [songs, setSongs] = useState<(PlaylistSong & { song?: Song })[]>([])
+  const [songs, setSongs] = useState<PlaylistSong[]>([])
+  const visibleSongs = useMemo(() => songs.filter((entry) => !isLegacyGlobalThemeEntry(entry)), [songs])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchPlaylist = useCallback(async () => {
+  const fetchPlaylist = useCallback(async (showLoading = true) => {
     if (!playlistId) {
       setPlaylist(null)
       setSongs([])
@@ -121,7 +125,7 @@ export function usePlaylist(playlistId: string | undefined) {
     }
 
     try {
-      setLoading(true)
+      if (showLoading) setLoading(true)
       setError(null)
 
       // Fetch playlist metadata
@@ -140,9 +144,11 @@ export function usePlaylist(playlistId: string | undefined) {
         .select('*, song:songs(*)')
         .eq('playlist_id', playlistId)
         .order('order', { ascending: true })
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
 
       if (psError) throw psError
-      setSongs(psData as (PlaylistSong & { song?: Song })[])
+      setSongs(psData as PlaylistSong[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch playlist')
     } finally {
@@ -157,22 +163,14 @@ export function usePlaylist(playlistId: string | undefined) {
   const addSong = useCallback(async (songId: string): Promise<void> => {
     if (!playlistId) return
 
-    const nextOrder = songs.length > 0
-      ? Math.max(...songs.map((s) => s.order)) + 1
-      : 0
+    const { error: sbError } = await supabase.rpc('append_playlist_song', {
+      p_playlist_id: playlistId,
+      p_song_id: songId,
+    })
 
-    const { error: sbError } = await supabase
-      .from('playlist_songs')
-      .insert({
-        playlist_id: playlistId,
-        song_id: songId,
-        transpose: 0,
-        order: nextOrder,
-      })
-
-    if (sbError) throw sbError
-    await fetchPlaylist()
-  }, [playlistId, songs, fetchPlaylist])
+    if (sbError) throw new Error(sbError.message)
+    await fetchPlaylist(false)
+  }, [playlistId, fetchPlaylist])
 
   const removeSong = useCallback(async (playlistSongId: string): Promise<void> => {
     const { error: sbError } = await supabase
@@ -181,34 +179,30 @@ export function usePlaylist(playlistId: string | undefined) {
       .eq('id', playlistSongId)
 
     if (sbError) throw sbError
-    await fetchPlaylist()
+    await fetchPlaylist(false)
   }, [fetchPlaylist])
 
   const reorderSongs = useCallback(async (orderedIds: string[]): Promise<void> => {
     if (!playlistId) return
 
-    // Update order for each playlist song — use allSettled for partial failure tolerance
-    const updates = orderedIds.map((psId, index) =>
-      supabase
-        .from('playlist_songs')
-        .update({ order: index })
-        .eq('id', psId)
-    )
-
-    const results = await Promise.allSettled(updates)
-    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-    if (failures.length > 0) {
-      console.error('Some reorder updates failed:', failures)
-      // Still refresh to get current DB state
-    }
-    await fetchPlaylist()
-  }, [fetchPlaylist, playlistId])
+    let position = 0
+    const fullOrder = songs.length !== visibleSongs.length && orderedIds.length === visibleSongs.length
+      ? songs.map((entry) => isLegacyGlobalThemeEntry(entry) ? entry.id : orderedIds[position++])
+      : orderedIds
+    const { error: sbError } = await supabase.rpc('reorder_playlist_entries', {
+      p_playlist_id: playlistId,
+      p_entry_ids: fullOrder,
+    })
+    await fetchPlaylist(false)
+    if (sbError) throw new Error(sbError.message)
+  }, [fetchPlaylist, playlistId, songs, visibleSongs.length])
 
   const setTranspose = useCallback(async (playlistSongId: string, semitones: number): Promise<void> => {
     const { error: sbError } = await supabase
       .from('playlist_songs')
       .update({ transpose: semitones })
       .eq('id', playlistSongId)
+      .not('song_id', 'is', null)
 
     if (sbError) throw sbError
 
@@ -219,5 +213,26 @@ export function usePlaylist(playlistId: string | undefined) {
     )
   }, [])
 
-  return { playlist, songs, loading, error, addSong, removeSong, reorderSongs, setTranspose, refresh: fetchPlaylist }
+  const editCue = useCallback(async (entry: PlaylistSong, cue: PlaylistCue | null) => {
+    if (!playlistId || entry.playlist_id !== playlistId) throw new Error('ไม่พบรายการในเพลย์ลิสต์นี้')
+    const { error: saveError } = await supabase.rpc('edit_playlist_cue', {
+      p_playlist_id: playlistId,
+      p_entry_id: entry.id,
+      p_expected_cue: entry.cue ?? null,
+      p_cue: cue,
+    })
+    if (saveError?.code === '40001') {
+      const { data: latest, error: refreshError } = await supabase.from('playlist_songs')
+        .select('cue').eq('playlist_id', playlistId).eq('id', entry.id).maybeSingle()
+      if (!refreshError) {
+        setSongs((current) => latest ? current.map((row) => row.id === entry.id ? { ...row, cue: latest.cue as PlaylistCue | null } : row)
+          : current.filter((row) => row.id !== entry.id))
+      }
+      throw new Error('รายการนี้ถูกแก้ไขหรือลบจากอีกหน้าต่างแล้ว กรุณาเปิดรายการล่าสุดก่อนบันทึก')
+    }
+    if (saveError) throw new Error(saveError.message)
+    setSongs((current) => current.map((row) => row.id === entry.id ? { ...row, cue } : row))
+  }, [playlistId])
+
+  return { playlist, songs: visibleSongs, loading, error, addSong, removeSong, reorderSongs, setTranspose, editCue, refresh: fetchPlaylist }
 }

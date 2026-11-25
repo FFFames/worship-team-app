@@ -14,8 +14,13 @@ export type Slide = {
   lines: string[]
 }
 
-/** Maximum number of lyric lines placed on a single slide. */
+/** Default number of lyric lines placed on a single slide. */
 export const MAX_LINES_PER_SLIDE = 4
+export type LyricLayout = 1 | 2 | 4 | 'stanza'
+
+export function isLyricLayout(value: unknown): value is LyricLayout {
+  return value === 1 || value === 2 || value === 4 || value === 'stanza'
+}
 
 /** Conservative width that stays on one rendered line in the presenter. */
 export const MAX_GRAPHEMES_PER_LINE = 30
@@ -27,23 +32,23 @@ function graphemeLength(value: string): number {
   return Array.from(graphemeSegmenter.segment(value)).length
 }
 
-function splitLongToken(token: string): string[] {
+function splitLongToken(token: string, maxGraphemes: number): string[] {
   const graphemes = Array.from(graphemeSegmenter.segment(token), ({ segment }) => segment)
   const chunks: string[] = []
-  for (let index = 0; index < graphemes.length; index += MAX_GRAPHEMES_PER_LINE) {
-    chunks.push(graphemes.slice(index, index + MAX_GRAPHEMES_PER_LINE).join(''))
+  for (let index = 0; index < graphemes.length; index += maxGraphemes) {
+    chunks.push(graphemes.slice(index, index + maxGraphemes).join(''))
   }
   return chunks
 }
 
 /** Wrap one stored lyric line into deterministic presenter-safe display lines. */
-export function wrapLyricLine(line: string): string[] {
+export function wrapLyricLine(line: string, maxGraphemes = MAX_GRAPHEMES_PER_LINE): string[] {
   const tokens = Array.from(wordSegmenter.segment(line.trim()), ({ segment }) => segment)
   const wrapped: string[] = []
   let current = ''
 
   for (const token of tokens) {
-    if (graphemeLength(current + token) <= MAX_GRAPHEMES_PER_LINE) {
+    if (graphemeLength(current + token) <= maxGraphemes) {
       current += token
       continue
     }
@@ -51,8 +56,8 @@ export function wrapLyricLine(line: string): string[] {
     if (current.trim()) wrapped.push(current.trim())
     current = ''
 
-    if (graphemeLength(token.trim()) > MAX_GRAPHEMES_PER_LINE) {
-      const chunks = splitLongToken(token.trim())
+    if (graphemeLength(token.trim()) > maxGraphemes) {
+      const chunks = splitLongToken(token.trim(), maxGraphemes)
       wrapped.push(...chunks.slice(0, -1))
       current = chunks[chunks.length - 1] ?? ''
     } else {
@@ -82,12 +87,10 @@ const FALLBACK_SECTION_LABELS: Record<SectionType, string> = {
  *
  * Rules:
  *  - Each section yields at least one slide (if it has any non-empty lines).
- *  - If a section fits within MAX_LINES_PER_SLIDE it becomes a single slide.
- *  - If a section is longer, it is chunked into consecutive slides of
- *    MAX_LINES_PER_SLIDE — every chunk still belongs to the SAME section.
+ *  - A stanza fills one slide, or is split by the selected display line count.
  *  - Slides never mix lines from two different sections.
  */
-export function buildSlides(sections: Section[]): Slide[] {
+export function buildSlides(sections: Section[], layout: LyricLayout = MAX_LINES_PER_SLIDE): Slide[] {
   const slides: Slide[] = []
 
   for (const section of sections) {
@@ -99,11 +102,12 @@ export function buildSlides(sections: Section[]): Slide[] {
 
     const sectionLabel = getSectionDisplayLabel(section) || FALLBACK_SECTION_LABELS[section.type] || section.type
 
-    for (let i = 0; i < lines.length; i += MAX_LINES_PER_SLIDE) {
+    const chunkSize = layout === 'stanza' ? lines.length : layout
+    for (let i = 0; i < lines.length; i += chunkSize) {
       slides.push({
         sectionType: section.type,
         sectionLabel,
-        lines: lines.slice(i, i + MAX_LINES_PER_SLIDE),
+        lines: lines.slice(i, i + chunkSize),
       })
     }
   }

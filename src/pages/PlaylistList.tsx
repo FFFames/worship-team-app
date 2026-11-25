@@ -11,7 +11,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { usePlaylists } from '../hooks/usePlaylists'
 import { PlaylistCard } from '../components/PlaylistCard'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -97,6 +97,8 @@ export default function PlaylistList() {
           <p>{playlists.length > 0 ? `${playlists.length} เพลย์ลิสต์ · จัดระเบียบเพลงของคุณเป็นเซ็ตลิสต์สำหรับแสดงหรือซ้อม` : 'จัดระเบียบเพลงของคุณเป็นเซ็ตลิสต์สำหรับแสดงหรือซ้อม'}</p>
         </div>
         <div className="page-actions">
+          <Link to="/playlists/import" className="btn-secondary">นำเข้าตาราง EasyWorship</Link>
+          <Link to="/playlists/package" className="btn-secondary">เปิดแพ็กเกจเพลย์ลิสต์</Link>
           <button onClick={() => setCreating(true)} className="btn-primary">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17 }}>
               <line x1="12" y1="5" x2="12" y2="19" />

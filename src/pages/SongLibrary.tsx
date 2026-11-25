@@ -8,10 +8,14 @@
  * - Exponential ease-out motion only; staggered card entrance
  */
 
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs'
 import { SongCard } from '../components/SongCard'
+import { useCollectionFilter } from '../hooks/useCollectionFilter'
+import { LibraryCollectionControls } from '../components/LibraryCollectionControls'
+import { prepareSongCollectionFilter } from '../utils/songCollectionRules'
+import { orderedSongList, songSort } from '../utils/songList'
 import { motion } from 'framer-motion'
 
 const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -19,39 +23,23 @@ const easeOutExpo: [number, number, number, number] = [0.16, 1, 0.3, 1]
 /** Song Library page — grid of song cards */
 export default function SongLibrary() {
   const navigate = useNavigate()
-  const { songs, loading, error, searchQuery, setSearchQuery } = useSongs()
-  const [sortBy, setSortBy] = useState('updated')
-
-  // Filter songs by search and sort
-  const filteredSongs = useMemo(() => {
-    let result = [...songs]
-
-    // Apply search filter
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(
-        (s) =>
-          s.title.toLowerCase().includes(q) ||
-          (s.artist && s.artist.toLowerCase().includes(q))
-      )
-    }
-
-    // Apply sorting
-    result.sort((a, b) => {
-      if (sortBy === 'updated') {
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      }
-      if (sortBy === 'title') {
-        return a.title.localeCompare(b.title, 'th')
-      }
-      if (sortBy === 'artist') {
-        return (a.artist || '').localeCompare(b.artist || '', 'th')
-      }
-      return 0
-    })
-
-    return result
-  }, [songs, searchQuery, sortBy])
+  const [params, setParams] = useSearchParams()
+  const searchScope = params.get('scope') === 'lyrics' ? 'lyrics' : 'metadata'
+  const sortBy = songSort(params.get('sort'), 'updated')
+  const searchQuery = params.get('q') ?? ''
+  const collectionFilter = useCollectionFilter('songs')
+  const activeCollection = collectionFilter.selected
+  const collection = useMemo(() => activeCollection && prepareSongCollectionFilter(activeCollection.leaves), [activeCollection])
+  const { songs, loading, error } = useSongs(true, searchScope, { collectionDetails: collection?.needsDetails, query: searchQuery })
+  const filteredSongs = useMemo(() => orderedSongList(songs, sortBy, collection?.includesSong), [songs, sortBy, collection])
+  function changeFilter(key: 'scope' | 'sort' | 'q', value: string) {
+    setParams((current) => {
+      const next = new URLSearchParams(current)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      return next
+    }, { replace: true })
+  }
 
   const handleCreateNew = () => {
     navigate('/songs/new')
@@ -72,9 +60,14 @@ export default function SongLibrary() {
       >
         <div className="page-title">
           <h1>คลังเพลง</h1>
-          <p>{songs.length > 0 ? `${songs.length} เพลง · จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว` : 'จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว'}</p>
+          <p>{activeCollection ? activeCollection.collection.path.join(' › ')
+            : songs.length > 0 ? `${songs.length} เพลง · จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว` : 'จัดการคอร์ดเพลงทั้งหมดของคุณในที่เดียว'}</p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions flex-wrap">
+          <Link to="/songs/history" className="btn-secondary">ประวัติการใช้เพลง</Link>
+          <Link to={{ pathname: '/songs/print', search: params.toString() }} className="btn-secondary">พิมพ์รายชื่อเพลง</Link>
+          <Link to="/import/easyworship" className="btn-secondary">ย้ายโปรไฟล์ EasyWorship</Link>
+          <Link to="/songs/import" className="btn-secondary">นำเข้า EasyWorship</Link>
           <button onClick={handleCreateNew} className="btn-primary">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17 }}>
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -97,20 +90,38 @@ export default function SongLibrary() {
           </div>
           <input
             type="text"
+            aria-label="ค้นหาเพลง"
             className="search-input"
-            placeholder="ค้นหาเพลง..."
+            placeholder={searchScope === 'lyrics' ? 'ค้นหาคำในเนื้อเพลง…' : 'ค้นหาชื่อเพลงหรือศิลปิน…'}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => changeFilter('q', event.target.value)}
           />
         </div>
 
+        <select aria-label="ค้นหาจาก" className="sort-dropdown" value={searchScope}
+          onChange={(event) => changeFilter('scope', event.target.value)}>
+          <option value="metadata">ชื่อเพลงหรือศิลปิน</option>
+          <option value="lyrics">เนื้อเพลง</option>
+        </select>
+
         {/* Sort dropdown */}
-        <select className="sort-dropdown" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+        <select aria-label="เรียงเพลง" className="sort-dropdown" value={sortBy} onChange={(event) => changeFilter('sort', event.target.value)}>
           <option value="updated">เรียงตาม: ล่าสุด</option>
           <option value="title">เรียงตาม: ชื่อ A-Z</option>
           <option value="artist">เรียงตาม: ศิลปิน</option>
         </select>
       </div>
+
+      <section id="song-collections" aria-label="กลุ่มและโฟลเดอร์เพลง" className="mb-4! flex flex-wrap items-center gap-3">
+        <LibraryCollectionControls filter={collectionFilter} resources={['songs']} label="กลุ่มเพลง" createLabel="สร้างกลุ่มเพลง" editLabel="แก้ไขกลุ่มเพลง">
+          {activeCollection && !loading && (
+            <p className="text-sm text-[var(--fg-secondary)]" role="status">
+              {filteredSongs.length} เพลง
+              {activeCollection.collection.unresolvedSongs > 0 && ` · ${activeCollection.collection.unresolvedSongs} เพลงไม่มีข้อมูลในไฟล์ต้นทาง`}
+            </p>
+          )}
+        </LibraryCollectionControls>
+      </section>
 
       {/* Songs grid or empty state */}
       {loading && (
@@ -126,19 +137,20 @@ export default function SongLibrary() {
       )}
 
       {!loading && !error && filteredSongs.length > 0 && (
-        <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }} className="songs-grid">
+        <div className="songs-grid">
           {filteredSongs.map((song) => (
-            <motion.div
-              key={song.id}
-              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: easeOutExpo } } }}
-            >
-              <SongCard song={song} onEdit={handleEdit} />
-            </motion.div>
+            <SongCard key={song.id} song={song} onEdit={handleEdit} />
           ))}
-        </motion.div>
+        </div>
       )}
 
-      {!loading && !error && filteredSongs.length === 0 && (
+      {!loading && !error && filteredSongs.length === 0 && searchQuery.trim() && (
+        <p className="empty-state" role="status">ไม่พบเพลงที่ตรงกับคำค้น</p>
+      )}
+      {!loading && !error && filteredSongs.length === 0 && !searchQuery.trim() && activeCollection && (
+        <p className="empty-state" role="status">ยังไม่มีเพลงจากกลุ่มนี้ในคลัง</p>
+      )}
+      {!loading && !error && filteredSongs.length === 0 && !searchQuery.trim() && !activeCollection && (
         <div className="empty-state">
           <div className="empty-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}>
@@ -151,7 +163,6 @@ export default function SongLibrary() {
           <p>เริ่มต้นสร้างเพลงแรกของคุณ หรือนำเข้าจากไฟล์ที่มีอยู่</p>
           <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={handleCreateNew} className="btn-primary">สร้างเพลงใหม่</button>
-            <button className="btn-secondary">นำเข้าเพลง</button>
           </div>
         </div>
       )}

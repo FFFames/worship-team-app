@@ -1,0 +1,119 @@
+.schedule-print {
+  max-width: 64rem;
+  margin-inline: auto;
+  padding: 1.5rem clamp(.75rem, 4vw, 2rem);
+}
+
+.schedule-print-toolbar,
+.schedule-print-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.schedule-print-toolbar {
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.schedule-print-actions .input-field {
+  width: auto;
+}
+
+.schedule-paper {
+  padding: clamp(1rem, 5vw, 3rem);
+  border-radius: .75rem;
+  background: white;
+  color: #161914;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  font-family: 'Kanit', 'Noto Sans Thai', 'Thonburi', sans-serif;
+}
+
+.schedule-paper-header {
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #25342a;
+  margin-bottom: 1.2rem;
+  break-inside: avoid;
+}
+
+.schedule-paper h1, .schedule-paper h2, .schedule-paper h3 {
+  line-height: 1.25;
+  font-weight: 600;
+  color: inherit;
+  break-after: avoid;
+}
+
+.schedule-paper h1 { font-size: clamp(1.65rem, 4vw, 2.5rem); margin-block: .3rem .45rem; }
+.schedule-paper h2 { font-size: 1.45rem; margin-block: .2rem .55rem; }
+.schedule-paper h3 { font-size: 1rem; margin-bottom: .2rem; }
+.schedule-paper-note { color: #4b554e; font-size: .9em; font-weight: 400; }
+.schedule-paper-lyrics { white-space: pre-wrap; }
+.schedule-paper-header .schedule-paper-lyrics { margin-top: .6rem; }
+
+.schedule-paper-summary {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: .95em;
+  text-align: left;
+}
+
+.schedule-paper-summary thead th { border-bottom: 1px solid #6f7b72; font-weight: 600; }
+.schedule-paper-summary thead th:first-child { width: 3.25em; }
+.schedule-paper-summary thead th:last-child { width: 26%; }
+.schedule-paper-summary th, .schedule-paper-summary td { padding: .5em .3em; vertical-align: top; }
+.schedule-paper-summary tbody th { font-weight: 500; }
+.schedule-paper-summary tbody tr { border-bottom: 1px solid #d5dcd7; }
+.schedule-paper-summary tbody td:first-child { font-variant-numeric: tabular-nums; }
+
+.song-report-table thead th:first-child { width: 48%; }
+.song-report-table thead th:last-child { width: auto; }
+.song-report-table thead th:nth-last-child(3) { width: 38%; }
+
+.activity-report-summary thead th:first-child { width: 40%; }
+.activity-report-summary thead th:nth-child(2) { width: 20%; }
+.activity-report-summary thead th:last-child { width: auto; }
+.activity-report-events thead th:first-child { width: 25%; }
+.activity-report-events thead th:nth-child(2) { width: 40%; }
+.activity-report-events thead th:nth-child(3) { width: 17%; }
+.activity-report-events thead th:last-child { width: auto; }
+
+.schedule-paper-entry + .schedule-paper-entry {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #a3afa6;
+}
+
+.schedule-paper-entry > header { break-inside: avoid; }
+.schedule-paper-entry dl { margin-bottom: .65rem; }
+.schedule-paper-entry dl > div { display: grid; grid-template-columns: minmax(5em, 8em) minmax(0, 1fr); gap: .3em; }
+.schedule-paper-entry dt { color: #4b554e; }
+.schedule-paper-slide { margin-top: .75rem; }
+.schedule-paper-slide .schedule-paper-note { margin-top: .3rem; }
+
+@media print {
+  @page schedule-report {
+    size: A4;
+    margin: 14mm 15mm 17mm;
+    @bottom-center {
+      content: counter(page) " / " counter(pages);
+      color: #4b554e;
+      font: 9pt 'Kanit', sans-serif;
+    }
+  }
+
+  body:has(.schedule-print) { background: white; }
+  body:has(.schedule-print)::before, .schedule-print-toolbar { display: none; }
+  .schedule-print { page: schedule-report; max-width: none; padding: 0; }
+  .schedule-paper { padding: 0; border-radius: 0; font-size: 11pt; }
+  .schedule-paper h1 { font-size: 24pt; }
+  .schedule-paper h2 { font-size: 17pt; }
+  .schedule-paper h3 { font-size: 12pt; }
+  .schedule-paper-summary thead { display: table-header-group; }
+  .schedule-paper-summary th, .schedule-paper-summary td { padding-block: .3em; }
+  .schedule-paper-summary tr { break-inside: avoid; }
+  .schedule-paper-entry + .schedule-paper-entry { break-before: page; margin: 0; padding: 0; border: 0; }
+  .schedule-paper-lyrics { orphans: 2; widows: 2; }
+}

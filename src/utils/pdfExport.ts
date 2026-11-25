@@ -6,9 +6,10 @@
 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas-pro';
-import type { PlaylistSong, Section } from '../types/database';
+import type { PlaylistSong, Section, PlaylistCue } from '../types/database';
 import { transposeChordLine, transposeKey } from './transpose';
 import { getSectionDisplayLabel, parseChordLyrics } from './chordParser';
+import { songForPlaylistEntry } from './playlistCueEditing';
 
 const PAGE_W = 210; // A4 width mm
 const PAGE_H = 297; // A4 height mm
@@ -58,11 +59,16 @@ export async function exportPlaylistToPDF(
   const songRenders: SongRender[] = [];
 
   for (const ps of playlistSongs) {
-    const song = ps.song;
-    if (!song) continue;
-
-    const render = await renderSong(song, ps.transpose ?? 0);
-    songRenders.push(render);
+    const song = songForPlaylistEntry(ps);
+    if (song) {
+      songRenders.push(await renderSong(song, ps.transpose ?? 0));
+    } else if (ps.cue) {
+      const cue = ps.cue;
+      if (cue.slides.length === 0) songRenders.push(await renderCue(cue));
+      for (const [index, slide] of cue.slides.entries()) {
+        songRenders.push(await renderCue(cue, slide, index));
+      }
+    }
   }
 
   // 3. Build column layout — assign songs to columns
@@ -101,12 +107,36 @@ export async function exportPlaylistToPDF(
   doc.save(`${playlistName}.pdf`);
 }
 
+async function renderCue(cue: PlaylistCue, slide?: PlaylistCue['slides'][number], index = 0): Promise<SongRender> {
+  const content = slide && `
+    <div style="font-size: 10px; color: #666; margin-top: 6px;">${index + 1}. ${esc(slide.label)}</div>
+    ${slide.lines.map((line) => `<div style="font-size: 12px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere;">${esc(line)}</div>`).join('')}
+    ${slide.assets?.map((asset) => `<div style="font-size: 10px; color: #666; overflow-wrap: anywhere;">${esc(asset.filename)}</div>`).join('') ?? ''}
+  `;
+  const warning = index === 0 && cue.warnings?.length ? `<div style="font-size: 9px; color: #9a5b00; margin: 4px 0;">${esc(cue.warnings.join(' · '))}</div>` : '';
+  const html = `<div style="margin-bottom: 14px;"><div style="font-size: 15px; font-weight: bold;">${esc(cue.label)}</div><div style="font-size: 9px; color: #777; text-transform: uppercase;">${esc(cue.kind)}</div>${warning}${content || '<div style="font-size: 11px; color: #777;">ไม่มีข้อความสไลด์</div>'}</div><div style="border-top: 1px solid #e8e8e8; margin: 4px 0 10px;"></div>`;
+  return renderHtml(html);
+}
+
+async function renderHtml(html: string): Promise<SongRender> {
+  const container = document.createElement('div');
+  container.style.cssText = `position: fixed; top: -9999px; left: 0; width: ${COL_WIDTH_PX}px; font-family: 'Sukhumvit Set', 'Thonburi', 'Sarabun', sans-serif; background: white; color: #000; padding: 0; margin: 0; line-height: 1.5;`;
+  container.innerHTML = html;
+  document.body.appendChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale: RENDER_SCALE, useCORS: true, backgroundColor: '#ffffff', logging: false });
+    return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), heightMM: canvas.height / PX_PER_MM / RENDER_SCALE };
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
 /** Render the playlist title header into a canvas */
-async function renderHeader(name: string, songCount: number): Promise<HeaderRender> {
+async function renderHeader(name: string, entryCount: number): Promise<HeaderRender> {
   const html = `
     <div style="text-align: center; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; margin-bottom: 12px;">
       <div style="font-size: 18px; font-weight: bold; margin-bottom: 2px;">${esc(name)}</div>
-      <div style="font-size: 10px; color: #666;">${songCount} song${songCount !== 1 ? 's' : ''}</div>
+      <div style="font-size: 10px; color: #666;">${entryCount} รายการ</div>
     </div>
   `;
 

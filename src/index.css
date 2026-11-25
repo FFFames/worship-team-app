@@ -147,6 +147,14 @@ body::before {
   z-index: 0;
 }
 
+body:has([data-signal="ndi"]) {
+  background: transparent;
+}
+
+body:has([data-signal="ndi"])::before {
+  content: none;
+}
+
 /* ─── Typography ─── */
 .display-xl {
   font-family: var(--font-display);
@@ -1081,4 +1089,65 @@ p, li {
   .feature-card.feature-large {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* Presenter snapshots exclude browser chrome and keep messages on top of the slide. */
+@property --presentation-mask-front {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+:root:has([data-presentation-frame]) { view-transition-name: none; }
+[data-presentation-frame] { view-transition-name: worship-slide; }
+[data-presentation-overlays] { view-transition-name: worship-overlays; }
+
+::view-transition-group(worship-slide),
+::view-transition-group(worship-overlays),
+::view-transition-old(worship-slide),
+::view-transition-new(worship-slide),
+::view-transition-new(worship-overlays) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-group(worship-slide) {
+  overflow: clip;
+  background-color: var(--presentation-transition-backdrop, transparent);
+}
+::view-transition-group(worship-overlays) { z-index: 2; }
+::view-transition-old(worship-overlays) { display: none; }
+:root[data-presentation-exit-on-top]::view-transition-old(worship-slide) { z-index: 1; }
+
+/* Sample the cosine blend on each snapshot so its stops follow the animated front. */
+:root[data-presentation-transition-mask]::view-transition-new(worship-slide) {
+  --presentation-mask-stops:
+    black var(--presentation-mask-front),
+    rgb(0 0 0 / .98079) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .125),
+    rgb(0 0 0 / .92388) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .25),
+    rgb(0 0 0 / .83147) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .375),
+    rgb(0 0 0 / .70711) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .5),
+    rgb(0 0 0 / .55557) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .625),
+    rgb(0 0 0 / .38268) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .75),
+    rgb(0 0 0 / .19509) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .875),
+    transparent calc(var(--presentation-mask-front) + var(--presentation-mask-band));
+}
+:root[data-presentation-transition-mask="wipe"]::view-transition-new(worship-slide) {
+  mask-image: linear-gradient(var(--presentation-mask-angle), var(--presentation-mask-stops));
+}
+:root[data-presentation-transition-mask="iris-open"]::view-transition-new(worship-slide) {
+  mask-image: radial-gradient(ellipse 70.710678% 70.710678% at center, var(--presentation-mask-stops));
+}
+:root[data-presentation-transition-mask="iris-close"]::view-transition-old(worship-slide) {
+  mask-image: radial-gradient(ellipse 70.710678% 70.710678% at center,
+    black var(--presentation-mask-front),
+    rgb(0 0 0 / .80491) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .125),
+    rgb(0 0 0 / .61732) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .25),
+    rgb(0 0 0 / .44443) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .375),
+    rgb(0 0 0 / .29289) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .5),
+    rgb(0 0 0 / .16853) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .625),
+    rgb(0 0 0 / .07612) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .75),
+    rgb(0 0 0 / .01921) calc(var(--presentation-mask-front) + var(--presentation-mask-band) * .875),
+    transparent calc(var(--presentation-mask-front) + var(--presentation-mask-band))
+  );
 }

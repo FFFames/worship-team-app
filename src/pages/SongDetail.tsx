@@ -13,6 +13,7 @@ import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useSong, useSongs } from '../hooks/useSongs'
 import { usePlaylistInfo } from '../hooks/usePlaylists'
 import { ChordDisplay } from '../components/ChordDisplay'
+import { SongPresentation } from '../components/SongPresentation'
 import { TransposeControls } from '../components/TransposeControls'
 import { YouTubeEmbed } from '../components/YouTubeEmbed'
 import { parseChordLyrics } from '../utils/chordParser'
@@ -90,7 +91,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
   const fromPlaylistId = searchParams.get('fromPlaylist') ?? undefined
   const fromPlaylist = usePlaylistInfo(fromPlaylistId)
   const { song: fetchedSong, loading, error } = useSong(songProp ? undefined : paramId)
-  const { deleteSong: deleteSongById, refresh } = useSongs()
+  const { deleteSong: deleteSongById } = useSongs(false)
 
   const song = songProp ?? fetchedSong
 
@@ -102,7 +103,6 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
     if (!song) return
     try {
       await deleteSongById(song.id)
-      await refresh()
       navigate('/')
     } catch {
       // Error handled by modal state
@@ -219,11 +219,19 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
             </span>
           </div>
 
+          {(song.copyright || song.ccli_number || song.copyright_administrator) && (
+            <p className="mt-2 text-sm wrap-anywhere text-[var(--fg-secondary)]">
+              {[song.copyright, song.copyright_administrator && `ดูแลลิขสิทธิ์โดย ${song.copyright_administrator}`,
+                song.ccli_number && `CCLI #${song.ccli_number}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {song.description && <p className="mt-2 text-sm whitespace-pre-wrap wrap-anywhere text-[var(--fg-secondary)]">{song.description}</p>}
+
           {/* Tags */}
           {song.tags && song.tags.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', marginTop: 'var(--space-md)' }}>
               {song.tags.map((tag) => (
-                <span key={tag} style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-secondary)', padding: 'var(--space-xs) var(--space-sm)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontFamily: 'var(--font-display)', border: '1px solid var(--border-subtle)' }}>
+                <span key={tag} className="max-w-full wrap-anywhere" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-secondary)', padding: 'var(--space-xs) var(--space-sm)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontFamily: 'var(--font-display)', border: '1px solid var(--border-subtle)' }}>
                   {tag}
                 </span>
               ))}
@@ -289,6 +297,7 @@ export default function SongDetail({ song: songProp }: SongDetailProps) {
       </motion.div>
 
       {song.youtube_url ? <YouTubeEmbed url={song.youtube_url} title={song.title} /> : null}
+      <SongPresentation key={song.id} song={song} />
 
       {/* Song Content */}
       <motion.div

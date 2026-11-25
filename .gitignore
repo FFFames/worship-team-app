@@ -1,4 +1,5 @@
 node_modules/
+desktop/build/
 dist/
 .env.local
 .env

@@ -69,14 +69,20 @@ export default function PdfExport() {
             </Link>
           </>
         )}
-        {!loading && !error && status === 'generating' && (
+        {!loading && !error && songs.length === 0 && (
+          <div className="space-y-3 text-sm">
+            <p>ยังไม่มีรายการให้ส่งออก</p>
+            <Link to={`/playlists/${id}`} className="btn-secondary">กลับเพลย์ลิสต์</Link>
+          </div>
+        )}
+        {!loading && !error && songs.length > 0 && status === 'generating' && (
           <>
             <div className="spinner" style={{ margin: '0 auto var(--space-md)' }} />
             <p style={{ color: 'var(--fg-primary)', fontSize: '1.125rem', fontWeight: 500, fontFamily: 'var(--font-display)' }}>
               Generating PDF…
             </p>
             <p style={{ color: 'var(--fg-tertiary)', fontSize: '0.875rem', marginTop: 'var(--space-xs)' }}>
-              {playlist?.name} · {songs.length} song{songs.length !== 1 ? 's' : ''}
+              {playlist?.name} · {songs.length} รายการ
             </p>
             <p style={{ color: 'var(--fg-tertiary)', fontSize: '0.75rem', marginTop: 'var(--space-sm)' }}>
               Loading Thai font…

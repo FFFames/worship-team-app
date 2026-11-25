@@ -8,11 +8,11 @@
  */
 
 import { Link } from 'react-router-dom'
-import type { Song } from '../types/database'
+import type { SongListItem } from '../types/database'
 
 interface SongCardProps {
-  song: Song
-  onEdit?: (song: Song) => void
+  song: SongListItem
+  onEdit?: (song: SongListItem) => void
 }
 
 export function SongCard({ song, onEdit }: SongCardProps) {
